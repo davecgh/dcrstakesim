@@ -131,25 +131,20 @@ func (s *simulator) simulateFromCSV(csvPath string) error {
 	return nil
 }
 
-// calcDemand returns a simulated demand (as a percentage of the number of
-// tickets to purchase within a given stake difficulty interval).
 
 	
-	//static DDF y=425000*x^1.5
-func (s *simulator) calcDemand(nextHeight int32, nextTicketPrice int64) float64 {
-    ticketsPerBlock := s.params.TicketsPerBlock
+	//calcDemand 1500*(avgP/nextP)^1.6
+func (s *simulator) calcDemand(averagePrice float64, nextTicketPrice int64) float64 {
+    
 
-    // PoS Subsidy commands
-    posSubsidy := s.calcPoSSubsidy(nextHeight-1)
-    perVoteSubsidy := posSubsidy / dcrutil.Amount(ticketsPerBlock)
-    
-    yield := float64(perVoteSubsidy) / float64(nextTicketPrice)
-    yieldTickets := 425000 * math.Pow(float64(yield), 1.5)
-    
-    if (yieldTickets / 2880) > 1 {
-        return 1.0
-    }
-    return float64(1 * (yieldTickets / 2880))
+	yield := float64(averagePrice) / float64(nextTicketPrice)
+
+	yieldTickets := 1500 * math.Pow(float64(yield), 1.6)
+
+	if (yieldTickets / 2880) > 1 {
+		return 1.0
+	}
+	return 1 * (yieldTickets / 2880)
 
 
 }
@@ -218,8 +213,10 @@ func (s *simulator) simulate(numBlocks uint64) error {
 		} else {
 			nextTicketPrice := s.nextTicketPriceFunc()
 			if nextHeight%stakeDiffWindowSize == 0 {
+				stakedCoins := s.totalSupply - s.spendableSupply
+			    averagePrice := float64(stakedCoins) / float64(s.tip.poolSize)
 				
-				demand := s.calcDemand(nextHeight, nextTicketPrice)
+				demand := s.calcDemand(averagePrice, nextTicketPrice)
 				demandPerWindow = int32(float64(maxTicketsPerWindow) * demand)
 			}
 
