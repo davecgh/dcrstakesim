@@ -133,23 +133,32 @@ func (s *simulator) simulateFromCSV(csvPath string) error {
 
 // calcDemand returns a simulated demand (as a percentage of the number of
 // tickets to purchase within a given stake difficulty interval).
-func calcDemand(ticketPrice, ticketVWAP int64) float64 {
-	// 100% demand when the ticket price is under 80% of the VWAP.
-	eightyPercentVWAP := (ticketVWAP * 8) / 10
-	if ticketPrice < eightyPercentVWAP {
-		return 1.0
-	}
 
-	// No demand when the ticket price is over 120% of the VWAP.
-	if ticketPrice > (ticketVWAP*12)/10 {
-		return 0.0
-	}
+	
+	//yield > 0.05 only resonance buy
+func (s *simulator) calcDemand(nextHeight int32, nextTicketPrice int64) float64 {
+    ticketsPerBlock := s.params.TicketsPerBlock
 
-	// The ticket price is in between 80% and 120% of the VWAP, so create
-	// a linear demand accordingly.
-	fortyPercentVWAP := (ticketVWAP * 4) / 10
-	return 1 - float64(ticketPrice-eightyPercentVWAP)/float64(fortyPercentVWAP)
+    // PoS Subsidy commands
+    posSubsidy := s.calcPoSSubsidy(nextHeight-1)
+    perVoteSubsidy := posSubsidy / dcrutil.Amount(ticketsPerBlock)
+    
+    yield := float64(perVoteSubsidy) / float64(nextTicketPrice)
+    
+
+    
+    if yield > 0.05 {
+        return 1.0
+    }
+
+   
+    if yield < 0.05 {
+    	return 0
+    }
+    return 1.0
+
 }
+
 
 // calcVWAP calculates and return the volume-weighted average ticket purchase
 // price for up to 'StakeDiffWindows' worth of the previous ticket price
@@ -195,7 +204,7 @@ func (s *simulator) simulate(numBlocks uint64) error {
 	maxNewTicketsPerBlock := int32(s.params.MaxFreshStakePerBlock)
 	maxTicketsPerWindow := maxNewTicketsPerBlock * stakeDiffWindowSize
 
-	currentVWAP := s.params.MinimumStakeDiff
+	
 	demandPerWindow := maxTicketsPerWindow
 	for i := uint64(0); i < numBlocks; i++ {
 		var nextHeight int32
@@ -215,8 +224,8 @@ func (s *simulator) simulate(numBlocks uint64) error {
 		} else {
 			nextTicketPrice := s.nextTicketPriceFunc()
 			if nextHeight%stakeDiffWindowSize == 0 {
-				currentVWAP = s.calcPrevVWAP(s.tip)
-				demand := calcDemand(nextTicketPrice, currentVWAP)
+				
+				demand := s.calcDemand(nextHeight, nextTicketPrice)
 				demandPerWindow = int32(float64(maxTicketsPerWindow) * demand)
 			}
 
