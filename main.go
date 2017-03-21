@@ -10,7 +10,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	//"math"
+	"math"
 	"math/big"
 	"os"
 	"runtime/pprof"
@@ -135,7 +135,7 @@ func (s *simulator) simulateFromCSV(csvPath string) error {
 // tickets to purchase within a given stake difficulty interval).
 
 	
-	//yield > 0.05 only resonance buy
+	//static DDF y=425000*x^1.5
 func (s *simulator) calcDemand(nextHeight int32, nextTicketPrice int64) float64 {
     ticketsPerBlock := s.params.TicketsPerBlock
 
@@ -144,21 +144,15 @@ func (s *simulator) calcDemand(nextHeight int32, nextTicketPrice int64) float64 
     perVoteSubsidy := posSubsidy / dcrutil.Amount(ticketsPerBlock)
     
     yield := float64(perVoteSubsidy) / float64(nextTicketPrice)
+    yieldTickets := 425000 * math.Pow(float64(yield), 1.5)
     
-
-    
-    if yield > 0.05 {
+    if (yieldTickets / 2880) > 1 {
         return 1.0
     }
+    return float64(1 * (yieldTickets / 2880))
 
-   
-    if yield < 0.05 {
-    	return 0
-    }
-    return 1.0
 
 }
-
 
 // calcVWAP calculates and return the volume-weighted average ticket purchase
 // price for up to 'StakeDiffWindows' worth of the previous ticket price
