@@ -131,9 +131,30 @@ func (s *simulator) simulateFromCSV(csvPath string) error {
 	return nil
 }
 
-// calcDemand returns a simulated demand (as a percentage of the number of
-// tickets to purchase within a given stake difficulty interval).
-func calcDemand(ticketPrice, ticketVWAP int64) float64 {
+// calcYieldDemand returns a simulated demand (as a percentage of the number of
+// tickets to purchase within a given stake difficulty interval) based upon the
+// estimated yield purchasing a ticket would produce.
+func calcYieldDemand(ticketPrice, perVoteSubsidy int64) float64 {
+	// 100% demand when the yield is over 5%.
+	yield := float64(perVoteSubsidy) / float64(ticketPrice)
+	if yield > 0.05 {
+		return 1.0
+	}
+
+	// No demand when the yield is under 2%.
+	if yield < 0.02 {
+		return 0.0
+	}
+
+	// The yield is in between 2% and 5%, so create a linear demand
+	// accordingly.
+	return (yield - 0.02) / 0.03
+}
+
+// calcVWAPDemand returns a simulated demand (as a percentage of the number of
+// tickets to purchase within a given stake difficulty interval) based upon the
+// volume-weighted average ticket purchase of the previous ticket price windows.
+func calcVWAPDemand(ticketPrice, ticketVWAP int64) float64 {
 	// 100% demand when the ticket price is under 80% of the VWAP.
 	eightyPercentVWAP := (ticketVWAP * 8) / 10
 	if ticketPrice < eightyPercentVWAP {
@@ -183,6 +204,30 @@ func (s *simulator) calcPrevVWAP(prevNode *blockNode) int64 {
 	return new(big.Int).Div(weightedSum, totalTickets).Int64()
 }
 
+// calcDemand returns a simulated demand (as a percentage of the number of
+// tickets to purchase within a given stake difficulty interval).
+func (s *simulator) calcDemand(nextHeight int32, ticketPrice int64) float64 {
+	// Calculate the demand based on yield.
+	ticketsPerBlock := s.params.TicketsPerBlock
+	posSubsidy := s.calcPoSSubsidy(nextHeight - 1)
+	perVoteSubsidy := posSubsidy / dcrutil.Amount(ticketsPerBlock)
+	yieldDemand := calcYieldDemand(ticketPrice, int64(perVoteSubsidy))
+
+	// Calculate the demand based on the volume-weighted average ticket
+	// purchase price.
+	currentVWAP := s.calcPrevVWAP(s.tip)
+	vwapDemand := calcVWAPDemand(ticketPrice, currentVWAP)
+
+	// The demand is the combination of the two unless there is full demand
+	// based on yield and no demand based on the VWAP, in which case there
+	// is 100% demand.
+	demand := yieldDemand * vwapDemand
+	if yieldDemand == 1.0 && vwapDemand == 0.0 {
+		demand = 1.0
+	}
+	return demand
+}
+
 // simulate runs the simulation using a calculated demand curve which models
 // how ticket purchasing would typically proceed based upon the price and the
 // VWAP.
@@ -195,7 +240,6 @@ func (s *simulator) simulate(numBlocks uint64) error {
 	maxNewTicketsPerBlock := int32(s.params.MaxFreshStakePerBlock)
 	maxTicketsPerWindow := maxNewTicketsPerBlock * stakeDiffWindowSize
 
-	currentVWAP := s.params.MinimumStakeDiff
 	demandPerWindow := maxTicketsPerWindow
 	for i := uint64(0); i < numBlocks; i++ {
 		var nextHeight int32
@@ -215,8 +259,7 @@ func (s *simulator) simulate(numBlocks uint64) error {
 		} else {
 			nextTicketPrice := s.nextTicketPriceFunc()
 			if nextHeight%stakeDiffWindowSize == 0 {
-				currentVWAP = s.calcPrevVWAP(s.tip)
-				demand := calcDemand(nextTicketPrice, currentVWAP)
+				demand := s.calcDemand(nextHeight, nextTicketPrice)
 				demandPerWindow = int32(float64(maxTicketsPerWindow) * demand)
 			}
 
