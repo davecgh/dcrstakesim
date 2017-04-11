@@ -5,10 +5,82 @@
 package main
 
 import (
+	"math"
+
 	"github.com/davecgh/dcrstakesim/internal/tickettreap"
 
 	"github.com/decred/dcrutil"
 )
+
+// calcNextStakeDiffProposal1 returns the required stake difficulty (aka ticket
+// price) for the block after the current tip block the simulator is associated
+// with using the algorithm proposed by chappjc.
+// The tunable is g, a number on [0, 1].
+func (s *simulator) calcNextStakeDiffProposalJ() int64 {
+	// Stake difficulty before any tickets could possibly be purchased is
+	// the minimum value.
+	nextHeight := int32(0)
+	if s.tip != nil {
+		nextHeight = s.tip.height + 1
+	}
+	stakeDiffStartHeight := int32(s.params.CoinbaseMaturity) + 1
+	if nextHeight < stakeDiffStartHeight {
+		return s.params.MinimumStakeDiff
+	}
+
+	// Return the previous block's difficulty requirements if the next block
+	// is not at a difficulty retarget interval.
+	intervalSize := s.params.StakeDiffWindowSize
+	curDiff := s.tip.ticketPrice
+	if int64(nextHeight)%intervalSize != 0 {
+		return curDiff
+	}
+
+	// Pool: p, c, t (previous, current, target)
+	// Price : q, cur, n (previous, current, NEXT)
+
+	// Pool
+	c := int64(s.tip.poolSize)
+	t := int64(s.params.TicketsPerBlock) * int64(s.params.TicketPoolSize)
+	// Previous window pool size and ticket price
+	p, q := s.previousPoolSizeAndDiff(nextHeight)
+	// Return the existing ticket price for the first interval.
+	if p == 0 {
+		return curDiff
+	}
+ 
+	// Pool velocity (normalized)
+	A := int64(s.params.TicketsPerBlock) * intervalSize
+	B := (int64(s.params.MaxFreshStakePerBlock) - int64(s.params.TicketsPerBlock)) * intervalSize
+	D := c - p
+	v := float64(D-A) / float64(B-A)
+
+	// Pool force
+	del := t - c
+	delNorm := float64(del) / float64(t)
+
+	// Price damper
+	g := 0.25
+	absPriceDeltaLast := math.Abs(float64(curDiff-q) / float64(q))
+	m := g * math.Exp(-absPriceDeltaLast)
+
+	// Adjust
+	n := float64(curDiff) * (1 + m*v*delNorm)
+
+	price := int64(n)
+	if price < s.params.MinimumStakeDiff {
+		price = s.params.MinimumStakeDiff
+	}
+	return price
+}
+
+func (s *simulator) previousPoolSizeAndDiff(nextHeight int32) (int64, int64) {
+	node := s.ancestorNode(s.tip, nextHeight-int32(s.params.StakeDiffWindowSize), nil)
+	if node != nil {
+		return int64(node.poolSize), node.ticketPrice
+	}
+	return int64(s.tip.poolSize), s.tip.ticketPrice
+}
 
 // calcNextStakeDiffProposal1 returns the required stake difficulty (aka ticket
 // price) for the block after the current tip block the simulator is associated
