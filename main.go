@@ -348,6 +348,9 @@ func main() {
 	// *********************************************************************
 	sim := newSimulator(&chaincfg.MainNetParams)
 	sim.nextTicketPriceFunc = sim.curCalcNextStakeDiff
+	//sim.nextTicketPriceFunc = sim.calcNextStakeDiffProposal1
+	//sim.nextTicketPriceFunc = sim.calcNextStakeDiffProposal2
+	//sim.nextTicketPriceFunc = sim.calcNextStakeDiffProposal3
 
 	startTime := time.Now()
 	if *csvPath != "" {
