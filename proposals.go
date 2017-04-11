@@ -48,24 +48,23 @@ func (s *simulator) calcNextStakeDiffProposalJ() int64 {
 	if p == 0 {
 		return curDiff
 	}
- 
-	// Pool velocity (normalized)
+
+	// Pool velocity (normalized, always non-negative)
 	A := int64(s.params.TicketsPerBlock) * intervalSize
 	B := (int64(s.params.MaxFreshStakePerBlock) - int64(s.params.TicketsPerBlock)) * intervalSize
 	D := c - p
 	v := float64(D-A) / float64(B-A)
 
-	// Pool force
-	del := t - c
-	delNorm := float64(del) / float64(t)
+	// Pool force (multiple of target, signed)
+	del := float64(t-c) / float64(t)
 
-	// Price damper
+	// Price damper (always positive)
 	g := 0.25
 	absPriceDeltaLast := math.Abs(float64(curDiff-q) / float64(q))
 	m := g * math.Exp(-absPriceDeltaLast)
 
 	// Adjust
-	n := float64(curDiff) * (1 + m*v*delNorm)
+	n := float64(curDiff) * (1 + m*v*del)
 
 	price := int64(n)
 	if price < s.params.MinimumStakeDiff {
