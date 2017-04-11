@@ -281,10 +281,19 @@ func (s *simulator) simulate(numBlocks uint64) error {
 		}
 
 		// TODO(davec): Account for tickets being purchased.
-		// Limit the total staked coins to 40% of the total supply.
+		// Limit the total staked coins to 40% of the total supply
+		// except for in between blocks 80k and 100k which limit to 50%
+		// of the total supply in order to simulate a sudden surge and
+		// drop the amount of stake coins.
 		stakedCoins := s.totalSupply - s.spendableSupply
-		if newTickets > 0 && stakedCoins > (s.totalSupply*4/10) {
-			newTickets = 0
+		if nextHeight < 80000 || nextHeight > 100000 {
+			if newTickets > 0 && stakedCoins > (s.totalSupply*4/10) {
+				newTickets = 0
+			}
+		} else {
+			if newTickets > 0 && stakedCoins > (s.totalSupply*5/10) {
+				newTickets = 0
+			}
 		}
 
 		// Start voting once stake validation height is reached.  This
