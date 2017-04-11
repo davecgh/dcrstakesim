@@ -10,7 +10,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	//"math"
 	"math/big"
 	"os"
 	"runtime/pprof"
@@ -201,12 +200,23 @@ func (s *simulator) calcPrevVWAP(prevNode *blockNode) int64 {
 		prevNode = prevNode.parent
 	}
 
+	// Return minimum ticket price if there are were not any ticket
+	// purchases at all in the entire period being examined.
+	if totalTickets.Sign() == 0 {
+		return s.params.MinimumStakeDiff
+	}
+
 	return new(big.Int).Div(weightedSum, totalTickets).Int64()
 }
 
 // calcDemand returns a simulated demand (as a percentage of the number of
 // tickets to purchase within a given stake difficulty interval).
 func (s *simulator) calcDemand(nextHeight int32, ticketPrice int64) float64 {
+	// There is always 100% demand for minimum price tickets.
+	if ticketPrice == s.params.MinimumStakeDiff {
+		return 1.0
+	}
+
 	// Calculate the demand based on yield.
 	ticketsPerBlock := s.params.TicketsPerBlock
 	posSubsidy := s.calcPoSSubsidy(nextHeight - 1)
@@ -258,7 +268,7 @@ func (s *simulator) simulate(numBlocks uint64) error {
 			}
 		} else {
 			nextTicketPrice := s.nextTicketPriceFunc()
-			if nextHeight%stakeDiffWindowSize == 0 {
+			if nextHeight%stakeDiffWindowSize == 0 && nextHeight != 0 {
 				demand := s.calcDemand(nextHeight, nextTicketPrice)
 				demandPerWindow = int32(float64(maxTicketsPerWindow) * demand)
 			}
