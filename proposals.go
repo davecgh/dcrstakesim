@@ -5,19 +5,16 @@
 package main
 
 import (
+	"fmt"
 	"math"
+	"os"
 
 	"github.com/davecgh/dcrstakesim/internal/tickettreap"
-
 	"github.com/decred/dcrutil"
 )
 
 var s1 float64
 
-// calcNextStakeDiffProposal1 returns the required stake difficulty (aka ticket
-// price) for the block after the current tip block the simulator is associated
-// with using the algorithm proposed by chappjc.
-// The tunable is g, a number on [0, 1].
 func (s *simulator) calcNextStakeDiffProposalJ() int64 {
 	// Stake difficulty before any tickets could possibly be purchased is
 	// the minimum value.
@@ -25,9 +22,10 @@ func (s *simulator) calcNextStakeDiffProposalJ() int64 {
 	if s.tip != nil {
 		nextHeight = s.tip.height + 1
 	}
+	altMinDiff := int64(2)
 	stakeDiffStartHeight := int32(s.params.CoinbaseMaturity) + 1
 	if nextHeight < stakeDiffStartHeight {
-		return s.params.MinimumStakeDiff
+		return altMinDiff * 1e8 // s.params.MinimumStakeDiff
 	}
 
 	// Return the previous block's difficulty requirements if the next block
@@ -47,31 +45,39 @@ func (s *simulator) calcNextStakeDiffProposalJ() int64 {
 	// Previous window pool size and ticket price
 	p, q := s.previousPoolSizeAndDiff(nextHeight)
 	// Return the existing ticket price for the first interval.
-	if p == 0 || q == 0 {
+	if p == 0 {
 		return curDiff
 	}
 
 	// Pool velocity (normalized, always non-negative)
-	A := int64(s.params.TicketsPerBlock) * intervalSize
-	B := (int64(s.params.MaxFreshStakePerBlock) - int64(s.params.TicketsPerBlock)) * intervalSize
-	D := c - p
-	v := float64(D-A) / float64(B-A)
+	//A := -int64(s.params.TicketsPerBlock) * intervalSize
+	//B := (int64(s.params.MaxFreshStakePerBlock) - int64(s.params.TicketsPerBlock)) * intervalSize
+	//D := c - p
+	//slowDown := (1 - math.Abs(float64(D)) / float64(B+A))
 
 	// Pool force (multiple of target, signed)
-	del := float64(t-c) / float64(t)
+	del := float64(c-t) / float64(t) / float64(s.params.MaxFreshStakePerBlock)
 
 	// Price damper (always positive)
-	g := s1
 	absPriceDeltaLast := math.Abs(float64(curDiff-q) / float64(q))
-	m := g * math.Exp(-absPriceDeltaLast)
+	m := s1 * math.Exp(-absPriceDeltaLast)
 
 	// Adjust
-	n := float64(curDiff) * (1 + m*v*del)
+	pctChange := m * del
+	// if pctChange > 1.5 {
+	// 	pctChange = 1.5
+	// } else if pctChange < -0.5 {
+	// 	pctChange = -0.5
+	// }
+	n := float64(curDiff) * (1.0 + pctChange)
 
 	price := int64(n)
-	if price < s.params.MinimumStakeDiff {
-		price = s.params.MinimumStakeDiff
+	if price < altMinDiff*1e8 /* s.params.MinimumStakeDiff */ {
+		price = altMinDiff * 1e8 // s.params.MinimumStakeDiff
 	}
+
+	fmt.Println(c, c-t, m*del*float64(curDiff), pctChange, price)
+
 	return price
 }
 
