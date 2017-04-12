@@ -34,13 +34,11 @@ func (s *simulator) calcNextStakeDiffProposal1() int64 {
 
 	// Attempt to get the ticket price and pool size from the previous
 	// retarget interval.
+	var prevPoolSize int64
 	prevRetargetHeight := nextHeight - int32(intervalSize)
-	prevPoolSize := int64(s.tip.poolSize)
-	prevDiff := s.tip.ticketPrice
 	node := s.ancestorNode(s.tip, prevRetargetHeight, nil)
 	if node != nil {
 		prevPoolSize = int64(node.poolSize)
-		prevDiff = node.ticketPrice
 	}
 
 	// Return the existing ticket price for the first interval.
@@ -50,7 +48,7 @@ func (s *simulator) calcNextStakeDiffProposal1() int64 {
 
 	curPoolSize := int64(s.tip.poolSize)
 	ratio := float64(curPoolSize) / float64(prevPoolSize)
-	return int64(float64(prevDiff) * ratio)
+	return int64(float64(curDiff) * ratio)
 }
 
 // calcNextStakeDiffProposal2 returns the required stake difficulty (aka ticket
