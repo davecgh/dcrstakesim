@@ -258,26 +258,16 @@ func (s *simulator) simulate(numBlocks uint64) error {
 		}
 
 		// Purchase tickets according to simulated demand curve.
-		//
-		// When the height is prior to the stake validation height, just
-		// use a 50% demand rate to ramp up the simulation.
-		var newTickets uint8
-		if nextHeight < stakeValidationHeight {
-			if nextHeight >= ticketMaturity+1 {
-				newTickets = uint8(maxNewTicketsPerBlock / 2)
-			}
-		} else {
-			nextTicketPrice := s.nextTicketPriceFunc()
-			if nextHeight%stakeDiffWindowSize == 0 && nextHeight != 0 {
-				demand := s.calcDemand(nextHeight, nextTicketPrice)
-				demandPerWindow = int32(float64(maxTicketsPerWindow) * demand)
-			}
+		nextTicketPrice := s.nextTicketPriceFunc()
+		if nextHeight%stakeDiffWindowSize == 0 && nextHeight != 0 {
+			demand := s.calcDemand(nextHeight, nextTicketPrice)
+			demandPerWindow = int32(float64(maxTicketsPerWindow) * demand)
+		}
 
-			newTickets = uint8(demandPerWindow / stakeDiffWindowSize)
-			maxPossible := int64(s.spendableSupply) / nextTicketPrice
-			if int64(newTickets) > maxPossible {
-				newTickets = uint8(maxPossible)
-			}
+		newTickets := uint8(demandPerWindow / stakeDiffWindowSize)
+		maxPossible := int64(s.spendableSupply) / nextTicketPrice
+		if int64(newTickets) > maxPossible {
+			newTickets = uint8(maxPossible)
 		}
 
 		// TODO(davec): Account for tickets being purchased.
