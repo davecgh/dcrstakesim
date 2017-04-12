@@ -258,6 +258,13 @@ func (s *simulator) simulate(numBlocks uint64) error {
 
 		// Purchase tickets according to simulated demand curve.
 		nextTicketPrice := s.nextTicketPriceFunc()
+		if nextTicketPrice < s.params.MinimumStakeDiff {
+			panic(fmt.Sprintf("Ticket price function returned a "+
+				"price of %v which is under the minimum "+
+				"allowed price of %v",
+				dcrutil.Amount(nextTicketPrice),
+				dcrutil.Amount(s.params.MinimumStakeDiff)))
+		}
 		if nextHeight%stakeDiffWindowSize == 0 && nextHeight != 0 {
 			demand := s.calcDemand(nextHeight, nextTicketPrice)
 			demandPerWindow = int32(float64(maxTicketsPerWindow) * demand)
