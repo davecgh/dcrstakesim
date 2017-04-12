@@ -243,7 +243,6 @@ func (s *simulator) calcDemand(nextHeight int32, ticketPrice int64) float64 {
 // VWAP.
 func (s *simulator) simulate(numBlocks uint64) error {
 	// Shorter versions of some params for convenience.
-	ticketMaturity := int32(s.params.TicketMaturity)
 	ticketsPerBlock := s.params.TicketsPerBlock
 	stakeValidationHeight := int32(s.params.StakeValidationHeight)
 	stakeDiffWindowSize := int32(s.params.StakeDiffWindowSize)
