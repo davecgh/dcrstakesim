@@ -370,7 +370,7 @@ func main() {
 	var ddfName = flag.String("ddf", "a",
 		"Set the demand distribution function -- available options: [a, b]")
 	var verbose = flag.Bool("verbose", false, "Print additional details about simulator state")
-	var scalar1 = flag.Float64("scalar1", 0.25, "Algorithm parameter #1 (float64)")
+	var scalar1 = flag.Float64("scalar1", 9, "Algorithm parameter #1 (float64)")
 	flag.Parse()
 
 	s1 = *scalar1

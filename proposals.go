@@ -22,10 +22,10 @@ func (s *simulator) calcNextStakeDiffProposalJ() int64 {
 	if s.tip != nil {
 		nextHeight = s.tip.height + 1
 	}
-	altMinDiff := int64(2)
+	altMinDiff := int64(4) * 1e8 // normally s.params.MinimumStakeDiff
 	stakeDiffStartHeight := int32(s.params.CoinbaseMaturity) + 1
 	if nextHeight < stakeDiffStartHeight {
-		return altMinDiff * 1e8 // s.params.MinimumStakeDiff
+		return altMinDiff
 	}
 
 	// Return the previous block's difficulty requirements if the next block
@@ -36,53 +36,65 @@ func (s *simulator) calcNextStakeDiffProposalJ() int64 {
 		return curDiff
 	}
 
+	// The following variables are used in the algorithm
 	// Pool: p, c, t (previous, current, target)
-	// Price : q, cur, n (previous, current, NEXT)
+	// Price : q, curDiff, n (previous, current, next)
 
 	// Pool
 	c := int64(s.tip.poolSize)
 	t := int64(s.params.TicketsPerBlock) * int64(s.params.TicketPoolSize)
 	// Previous window pool size and ticket price
-	p, q := s.previousPoolSizeAndDiff(nextHeight)
+	p, q := s.poolSizeAndDiff(s.tip.height - int32(intervalSize))
 	// Return the existing ticket price for the first interval.
 	if p == 0 {
 		return curDiff
 	}
 
-	// Pool velocity (normalized, always non-negative)
-	//A := -int64(s.params.TicketsPerBlock) * intervalSize
-	//B := (int64(s.params.MaxFreshStakePerBlock) - int64(s.params.TicketsPerBlock)) * intervalSize
-	//D := c - p
-	//slowDown := (1 - math.Abs(float64(D)) / float64(B+A))
+	// Useful ticket counts are A (-5 * 144) and B (15 * 144)
+	// A := -int64(s.params.TicketsPerBlock) * intervalSize
+	// B := (int64(s.params.MaxFreshStakePerBlock) - int64(s.params.TicketsPerBlock)) * intervalSize
 
-	// Pool force (multiple of target, signed)
-	del := float64(c-t) / float64(t) / float64(s.params.MaxFreshStakePerBlock)
+	// Pool velocity (not used in this version)
+	// poolDelta := c - p
+	// slowDown := 1 - math.Abs(float64(poolDelta)) / float64(B+A)
 
-	// Price damper (always positive)
+	// Pool force (multiple of target pool size, signed)
+	del := float64(c-t) / float64(t)
+	// del /= float64(s.params.MaxFreshStakePerBlock)
+
+	// Price velocity damper (always positive) - A large change in price from
+	// the previous window to the current will have the effect of attenuating
+	// the price change we are computing here. This is a very simple way of
+	// slowing down the price, at the expense of making the price a little jumpy
+	// and slower to adapt to big events.
+	//
+	// Magnitude of price change as a percent of previous price.
 	absPriceDeltaLast := math.Abs(float64(curDiff-q) / float64(q))
-	m := s1 * math.Exp(-absPriceDeltaLast)
+	// Mapped onto (0,1] by an exponential decay
+	m := math.Exp(-absPriceDeltaLast * 8)
+	// NOTE: make this stochastic by replacing the number 8 something like
+	// (rand.NewSource(s.tip.ticketPrice).Int63() >> 59)
 
-	// Adjust
-	pctChange := m * del
-	// if pctChange > 1.5 {
-	// 	pctChange = 1.5
-	// } else if pctChange < -0.5 {
-	// 	pctChange = -0.5
-	// }
+	// Scale directional (signed) pool force with the exponentially-mapped price
+	// derivative. Interpret the scalar input parameter as a percent of this
+	// computed price delta.
+	pctChange := s1 / 100 * m * del
 	n := float64(curDiff) * (1.0 + pctChange)
 
+	// Enforce minimum price
 	price := int64(n)
-	if price < altMinDiff*1e8 /* s.params.MinimumStakeDiff */ {
-		price = altMinDiff * 1e8 // s.params.MinimumStakeDiff
+	if price < altMinDiff {
+		price = altMinDiff
 	}
 
-	fmt.Println(c, c-t, m*del*float64(curDiff), pctChange, price)
+	// Verbose info
+	fmt.Println(c, c-t, m, curDiff, q, absPriceDeltaLast, pctChange, price)
 
 	return price
 }
 
-func (s *simulator) previousPoolSizeAndDiff(nextHeight int32) (int64, int64) {
-	node := s.ancestorNode(s.tip, nextHeight-int32(s.params.StakeDiffWindowSize), nil)
+func (s *simulator) poolSizeAndDiff(height int32) (int64, int64) {
+	node := s.ancestorNode(s.tip, height, nil)
 	if node != nil {
 		return int64(node.poolSize), node.ticketPrice
 	}
