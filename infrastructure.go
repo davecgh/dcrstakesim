@@ -900,7 +900,7 @@ func (s *simulator) nextNode(data *simData) *blockNode {
 
 	// Update the live ticket pool by adding the newly purchased tickets,
 	// removing the winning tickets, removing any tickets that are now
-	// expired, and updated related state.  Also, add missed tickets to the
+	// expired, and update related state.  Also, add missed tickets to the
 	// unrevoked tickets pool.
 	s.unrevokedTickets = append(s.unrevokedTickets, ticketsMissed...)
 	s.connectLiveTickets(nextHeight, ticketsWon, ticketsAdded)
@@ -984,7 +984,6 @@ func generateResults(s *simulator) error {
 	}
 	totalTickets := s.liveTickets.Len() + len(s.wonTickets) +
 		len(s.expiredTickets)
-	//expired :=
 	err = resultsTpl.Execute(resultsFile, map[string]string{
 		"PoolSizeCSV":     poolSizeCSV.String(),
 		"TicketPriceCSV":  ticketPriceCSV.String(),
