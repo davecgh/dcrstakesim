@@ -212,14 +212,10 @@ func (s *simulator) calcPrevVWAP(prevNode *blockNode) int64 {
 // calcDemand returns a simulated demand (as a percentage of the number of
 // tickets to purchase within a given stake difficulty interval).
 func (s *simulator) calcDemand(nextHeight int32, ticketPrice int64) float64 {
-	// There is always 100% demand for minimum price tickets.
-	if ticketPrice == s.params.MinimumStakeDiff {
-		return 1.0
-	}
-
 	// Calculate the demand based on yield.
+	expectedPayoutHeight := int32((time.Hour * 24) * 28 / s.params.TargetTimePerBlock)
 	ticketsPerBlock := s.params.TicketsPerBlock
-	posSubsidy := s.calcPoSSubsidy(nextHeight - 1)
+	posSubsidy := s.calcPoSSubsidy(nextHeight + expectedPayoutHeight - 1)
 	perVoteSubsidy := posSubsidy / dcrutil.Amount(ticketsPerBlock)
 	yieldDemand := calcYieldDemand(ticketPrice, int64(perVoteSubsidy))
 
