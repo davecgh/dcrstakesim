@@ -310,7 +310,11 @@ type simulator struct {
 	spendableSupply dcrutil.Amount
 	maturingSupply  map[int32]dcrutil.Amount
 
+	// These fields control the ticket price and demand distribution
+	// functions used in the simulation.  The demand func takes the next
+	// height and the ticket price produced by the next ticket price func.
 	nextTicketPriceFunc func() int64
+	demandFunc          func(int32, int64) float64
 }
 
 // calcFullSubsidy returns the full block subsidy for the given block height.

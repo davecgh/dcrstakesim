@@ -133,7 +133,12 @@ func (s *simulator) simulateFromCSV(csvPath string) error {
 // calcYieldDemand returns a simulated demand (as a percentage of the number of
 // tickets to purchase within a given stake difficulty interval) based upon the
 // estimated yield purchasing a ticket would produce.
-func calcYieldDemand(ticketPrice, perVoteSubsidy int64) float64 {
+func (s *simulator) calcYieldDemand(nextHeight int32, ticketPrice int64) float64 {
+	expectedPayoutHeight := int32((time.Hour * 24) * 28 / s.params.TargetTimePerBlock)
+	ticketsPerBlock := s.params.TicketsPerBlock
+	posSubsidy := s.calcPoSSubsidy(nextHeight + expectedPayoutHeight - 1)
+	perVoteSubsidy := posSubsidy / dcrutil.Amount(ticketsPerBlock)
+
 	// 100% demand when the yield is over 5%.
 	yield := float64(perVoteSubsidy) / float64(ticketPrice)
 	if yield > 0.05 {
@@ -153,8 +158,9 @@ func calcYieldDemand(ticketPrice, perVoteSubsidy int64) float64 {
 // calcVWAPDemand returns a simulated demand (as a percentage of the number of
 // tickets to purchase within a given stake difficulty interval) based upon the
 // volume-weighted average ticket purchase of the previous ticket price windows.
-func calcVWAPDemand(ticketPrice, ticketVWAP int64) float64 {
+func (s *simulator) calcVWAPDemand(ticketPrice int64) float64 {
 	// 100% demand when the ticket price is under 80% of the VWAP.
+	ticketVWAP := s.calcPrevVWAP(s.tip)
 	eightyPercentVWAP := (ticketVWAP * 8) / 10
 	if ticketPrice < eightyPercentVWAP {
 		return 1.0
@@ -209,20 +215,17 @@ func (s *simulator) calcPrevVWAP(prevNode *blockNode) int64 {
 	return new(big.Int).Div(weightedSum, totalTickets).Int64()
 }
 
-// calcDemand returns a simulated demand (as a percentage of the number of
-// tickets to purchase within a given stake difficulty interval).
-func (s *simulator) calcDemand(nextHeight int32, ticketPrice int64) float64 {
+// demandFuncA returns a simulated demand (as a percentage of the number of
+// tickets to purchase within a given stake difficulty interval) based upon
+// a combination of the estimated yield purchasing a ticket would price and the
+// volume-weighted average ticket purchase price.
+func (s *simulator) demandFuncA(nextHeight int32, ticketPrice int64) float64 {
 	// Calculate the demand based on yield.
-	expectedPayoutHeight := int32((time.Hour * 24) * 28 / s.params.TargetTimePerBlock)
-	ticketsPerBlock := s.params.TicketsPerBlock
-	posSubsidy := s.calcPoSSubsidy(nextHeight + expectedPayoutHeight - 1)
-	perVoteSubsidy := posSubsidy / dcrutil.Amount(ticketsPerBlock)
-	yieldDemand := calcYieldDemand(ticketPrice, int64(perVoteSubsidy))
+	yieldDemand := s.calcYieldDemand(nextHeight, ticketPrice)
 
 	// Calculate the demand based on the volume-weighted average ticket
 	// purchase price.
-	currentVWAP := s.calcPrevVWAP(s.tip)
-	vwapDemand := calcVWAPDemand(ticketPrice, currentVWAP)
+	vwapDemand := s.calcVWAPDemand(ticketPrice)
 
 	// The demand is the combination of the two unless there is full demand
 	// based on yield and no demand based on the VWAP, in which case there
@@ -232,6 +235,13 @@ func (s *simulator) calcDemand(nextHeight int32, ticketPrice int64) float64 {
 		demand = 1.0
 	}
 	return demand
+}
+
+// demandFuncB returns a simulated demand (as a percentage of the number of
+// tickets to purchase within a given stake difficulty interval) based upon the
+// estimated yield purchasing a ticket would produce.
+func (s *simulator) demandFuncB(nextHeight int32, ticketPrice int64) float64 {
+	return s.calcYieldDemand(nextHeight, ticketPrice)
 }
 
 // simulate runs the simulation using a calculated demand curve which models
@@ -262,7 +272,12 @@ func (s *simulator) simulate(numBlocks uint64) error {
 				dcrutil.Amount(s.params.MinimumStakeDiff)))
 		}
 		if nextHeight%stakeDiffWindowSize == 0 && nextHeight != 0 {
-			demand := s.calcDemand(nextHeight, nextTicketPrice)
+			demand := s.demandFunc(nextHeight, nextTicketPrice)
+			if demand < 0 || demand > 1 {
+				panic(fmt.Sprintf("Demand function returned a "+
+					"demand of %v which is not in the "+
+					"range of [0, 1]", demand))
+			}
 			demandPerWindow = int32(float64(maxTicketsPerWindow) * demand)
 		}
 
@@ -322,6 +337,8 @@ func main() {
 	var csvPath = flag.String("inputcsv", "",
 		"Path to simulation CSV input data -- This overrides numblocks")
 	var numBlocks = flag.Uint64("numblocks", 100000, "Number of blocks to simulate")
+	var ddfName = flag.String("ddf", "a",
+		"Set the demand distribution function -- available options: [a, b]")
 	flag.Parse()
 
 	// Generate a CPU profile if requested.
@@ -345,6 +362,23 @@ func main() {
 	//sim.nextTicketPriceFunc = sim.calcNextStakeDiffProposal1
 	//sim.nextTicketPriceFunc = sim.calcNextStakeDiffProposal2
 	//sim.nextTicketPriceFunc = sim.calcNextStakeDiffProposal3
+
+	// *********************************************************************
+	// NOTE: Add any new demand distribution functions to return the
+	// simulated demand (as a percentage of the number of tickets to
+	// purchase within a given stake difficulty interval).  The returned
+	// result must be in the range [0, 1].
+	// *********************************************************************
+	switch *ddfName {
+	case "a":
+		sim.demandFunc = sim.demandFuncA
+	case "b":
+		sim.demandFunc = sim.demandFuncB
+	default:
+		fmt.Printf("%q is not a valid demand distribution func name\n",
+			*ddfName)
+		return
+	}
 
 	startTime := time.Now()
 	if *csvPath != "" {
