@@ -72,7 +72,7 @@ var resultsTmplText = `
           </tr>
           <tr>
             <td>Total Expired Tickets</td>
-            <td>{{.NumExpired}}</td>
+            <td>{{.NumExpired}} ({{.ExpiredPercent}}%)</td>
           </tr>
           <tr>
             <td>Min Pool Size</td>

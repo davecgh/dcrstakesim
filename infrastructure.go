@@ -984,6 +984,7 @@ func generateResults(s *simulator) error {
 	}
 	totalTickets := s.liveTickets.Len() + len(s.wonTickets) +
 		len(s.expiredTickets)
+	expiredPercent := float64(len(s.expiredTickets)) * 100 / float64(totalTickets)
 	err = resultsTpl.Execute(resultsFile, map[string]string{
 		"PoolSizeCSV":     poolSizeCSV.String(),
 		"TicketPriceCSV":  ticketPriceCSV.String(),
@@ -992,6 +993,7 @@ func generateResults(s *simulator) error {
 		"NumTickets":      strconv.FormatUint(uint64(totalTickets), 10),
 		"NumWinners":      strconv.FormatUint(uint64(len(s.wonTickets)), 10),
 		"NumExpired":      strconv.FormatUint(uint64(len(s.expiredTickets)), 10),
+		"ExpiredPercent":  strconv.FormatFloat(expiredPercent, 'f', 2, 64),
 		"MinPoolSize":     strconv.FormatUint(uint64(minPoolSize), 10),
 		"MaxPoolSize":     strconv.FormatUint(uint64(maxPoolSize), 10),
 		"CoinSupply":      s.totalSupply.String(),
