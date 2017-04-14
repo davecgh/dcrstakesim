@@ -437,7 +437,8 @@ func main() {
 			return
 		}
 	} else {
-		fmt.Printf("Running simulation for %d blocks.\n", *numBlocks)
+		fmt.Printf("Running simulation for %d blocks, price func %s, "+
+			"demand func %s.\n", *numBlocks, *pfName, *ddfName)
 		fmt.Printf("Height")
 		if err := sim.simulate(*numBlocks); err != nil {
 			fmt.Println(err)
