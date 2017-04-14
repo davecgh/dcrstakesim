@@ -258,8 +258,12 @@ func (s *simulator) simulate(numBlocks uint64) error {
 	demandPerWindow := maxTicketsPerWindow
 	for i := uint64(0); i < numBlocks; i++ {
 		var nextHeight int32
+		var totalSupply, spendableSupply, stakedCoins dcrutil.Amount
 		if s.tip != nil {
 			nextHeight = s.tip.height + 1
+			totalSupply = s.tip.totalSupply
+			spendableSupply = s.tip.spendableSupply
+			stakedCoins = s.tip.stakedCoins
 		}
 
 		// Purchase tickets according to simulated demand curve.
@@ -282,7 +286,7 @@ func (s *simulator) simulate(numBlocks uint64) error {
 		}
 
 		newTickets := uint8(demandPerWindow / stakeDiffWindowSize)
-		maxPossible := int64(s.spendableSupply) / nextTicketPrice
+		maxPossible := int64(spendableSupply) / nextTicketPrice
 		if int64(newTickets) > maxPossible {
 			newTickets = uint8(maxPossible)
 		}
@@ -293,14 +297,13 @@ func (s *simulator) simulate(numBlocks uint64) error {
 		// total number of blocks to simulate which limit to 50% of the
 		// total supply in order to simulate a sudden surge and drop the
 		// amount of stake coins.
-		stakedCoins := s.totalSupply - s.spendableSupply
 		if uint64(nextHeight) < (numBlocks*3/5) ||
 			uint64(nextHeight) > (numBlocks*4/5) {
-			if newTickets > 0 && stakedCoins > (s.totalSupply*2/5) {
+			if newTickets > 0 && stakedCoins > (totalSupply*2/5) {
 				newTickets = 0
 			}
 		} else {
-			if newTickets > 0 && stakedCoins > (s.totalSupply/2) {
+			if newTickets > 0 && stakedCoins > (totalSupply/2) {
 				newTickets = 0
 			}
 		}

@@ -95,9 +95,7 @@ var resultsTmplText = `
       <div id="charts" style="width: 95%; text-align: center;">
         <div id="poolsizediv" style="width: 50%; float: left;"></div>
         <div id="ticketpricediv" style="width: 50%; float: right;"></div>
-        <div style="width: 50%; float: left; margin-top: 2em;">
-          <canvas id="histogram"></canvas>
-        </div>
+        <div id="supplydiv" style="width: 50%; float: left;"></div>
       </div>
     </div>
 
@@ -130,7 +128,25 @@ var resultsTmplText = `
             legend: 'always',
             colors: ['#2972ff'],
             fillGraph: true,
-            drawPoints: true, 
+            drawPoints: true,
+            animatedZooms: true,
+            plugins : [
+                Dygraph.Plugins.Unzoom
+            ]
+          }
+        );
+
+        var csv = "{{.SupplyCSV}}";
+        var supplyGraph = new Dygraph(document.getElementById("supplydiv"), csv,
+          {
+            title: 'Supply Per Block',
+            labels: ['Block','Total Supply','Staked Supply'],
+            xlabel: 'Block Height',
+            ylabel: 'Millions of DCR',
+            legend: 'always',
+            colors: ['#0c1e3e','#2972ff'],
+            fillGraph: true,
+            drawPoints: true,
             animatedZooms: true,
             plugins : [
                 Dygraph.Plugins.Unzoom

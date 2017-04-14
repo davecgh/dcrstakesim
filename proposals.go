@@ -136,7 +136,7 @@ func (s *simulator) calcNextStakeDiffProposal3() int64 {
 	// f(x) = x*(locked/target_pool_size) + (1-x)*(locked/pool_size_actual)
 	ticketsPerBlock := int64(s.params.TicketsPerBlock)
 	targetPoolSize := ticketsPerBlock * int64(s.params.TicketPoolSize)
-	lockedSupply := s.totalSupply - s.spendableSupply
+	lockedSupply := s.tip.stakedCoins
 	x := int64(1)
 	var price int64
 	if s.tip.poolSize == 0 {
