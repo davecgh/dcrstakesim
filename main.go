@@ -369,6 +369,7 @@ func main() {
 		"Set the ticket price calculation function -- available options: [current, 1, 2, 3]")
 	var ddfName = flag.String("ddf", "a",
 		"Set the demand distribution function -- available options: [a, b]")
+	var verbose = flag.Bool("verbose", false, "Print additional details about simulator state")
 	flag.Parse()
 
 	// Generate a CPU profile if requested.
@@ -388,7 +389,7 @@ func main() {
 	// difficulty (aka ticket price) here.  Don't forget to update the help
 	// text for pfName above.
 	// *********************************************************************
-	sim := newSimulator(&chaincfg.MainNetParams)
+	sim := newSimulator(&chaincfg.MainNetParams, *verbose)
 	pfResultsName := *pfName
 	switch *pfName {
 	case "current":
