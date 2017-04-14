@@ -364,6 +364,8 @@ func main() {
 	var csvPath = flag.String("inputcsv", "",
 		"Path to simulation CSV input data -- This overrides numblocks")
 	var numBlocks = flag.Uint64("numblocks", 100000, "Number of blocks to simulate")
+	var pfName = flag.String("pf", "current",
+		"Set the ticket price calculation function -- available options: [current, 1, 2, 3]")
 	var ddfName = flag.String("ddf", "a",
 		"Set the demand distribution function -- available options: [a, b]")
 	flag.Parse()
@@ -381,14 +383,30 @@ func main() {
 	}
 
 	// *********************************************************************
-	// NOTE: Set a different function to calculate the next required stake
-	// difficulty (aka ticket price) here.
+	// NOTE: Add any new functions to calculate the next required stake
+	// difficulty (aka ticket price) here.  Don't forget to update the help
+	// text for pfName above.
 	// *********************************************************************
 	sim := newSimulator(&chaincfg.MainNetParams)
-	sim.nextTicketPriceFunc = sim.curCalcNextStakeDiff
-	//sim.nextTicketPriceFunc = sim.calcNextStakeDiffProposal1
-	//sim.nextTicketPriceFunc = sim.calcNextStakeDiffProposal2
-	//sim.nextTicketPriceFunc = sim.calcNextStakeDiffProposal3
+	pfResultsName := *pfName
+	switch *pfName {
+	case "current":
+		sim.nextTicketPriceFunc = sim.curCalcNextStakeDiff
+		pfResultsName = "Current algorithm"
+	case "1":
+		sim.nextTicketPriceFunc = sim.calcNextStakeDiffProposal1
+		pfResultsName = "Proposal 1"
+	case "2":
+		sim.nextTicketPriceFunc = sim.calcNextStakeDiffProposal2
+		pfResultsName = "Proposal 2"
+	case "3":
+		sim.nextTicketPriceFunc = sim.calcNextStakeDiffProposal3
+		pfResultsName = "Proposal 3"
+	default:
+		fmt.Printf("%q is not a valid ticket price func name\n",
+			*pfName)
+		return
+	}
 
 	// *********************************************************************
 	// NOTE: Add any new demand distribution functions to return the
@@ -396,11 +414,14 @@ func main() {
 	// purchase within a given stake difficulty interval).  The returned
 	// result must be in the range [0, 1].
 	// *********************************************************************
+	ddfResultsName := *ddfName
 	switch *ddfName {
 	case "a":
 		sim.demandFunc = sim.demandFuncA
+		ddfResultsName = "a - Purchase based on estimated nominal yield and volume-weighted average price"
 	case "b":
 		sim.demandFunc = sim.demandFuncB
+		ddfResultsName = "b - Purchase based on estimated nominal yield"
 	default:
 		fmt.Printf("%q is not a valid demand distribution func name\n",
 			*ddfName)
@@ -427,7 +448,7 @@ func main() {
 	fmt.Println("Simulation took", time.Since(startTime))
 
 	// Generate the simulation results and open them in a browser.
-	if err := generateResults(sim); err != nil {
+	if err := generateResults(sim, pfResultsName, ddfResultsName); err != nil {
 		fmt.Println(err)
 		return
 	}

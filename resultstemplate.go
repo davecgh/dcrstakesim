@@ -70,6 +70,12 @@ var resultsTmplText = `
             <td>Total & Spendable Coin Supply</td>
             <td>{{.CoinSupply}}, {{.SpendableSupply}}</td>
           </tr>
+          {{range .Parameters}}
+          <tr>
+            <td>{{.Name}}</td>
+            <td>{{.Value}}</td>
+          </tr>
+          {{end}}
           <tr>
             <td>Notes</td>
             <td>

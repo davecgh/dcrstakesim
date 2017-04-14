@@ -948,7 +948,7 @@ func newSimulator(params *chaincfg.Params) *simulator {
 
 // generateResults creates an HTML results file for a completed simulation and
 // opens it using a browser.
-func generateResults(s *simulator) error {
+func generateResults(s *simulator, proposalName, ddfName string) error {
 	fileName := fmt.Sprintf("dcrstakesim-%s.html", time.Now().
 		Format("2006-01-02-150405"))
 	resultsPath := filepath.Join(os.TempDir(), fileName)
@@ -1018,6 +1018,13 @@ func generateResults(s *simulator) error {
 	totalTickets := s.liveTickets.Len() + len(s.wonTickets) +
 		len(s.expiredTickets)
 	expiredPercent := float64(len(s.expiredTickets)) * 100 / float64(totalTickets)
+	parameters := []struct {
+		Name  string
+		Value string
+	}{
+		{"Price Function", proposalName},
+		{"Demand Distribution Function", ddfName},
+	}
 	err = resultsTpl.Execute(resultsFile, map[string]interface{}{
 		"PoolSizeCSV":     poolSizeCSV.String(),
 		"TicketPriceCSV":  ticketPriceCSV.String(),
@@ -1032,6 +1039,7 @@ func generateResults(s *simulator) error {
 		"MaxPoolSize":     maxPoolSize,
 		"CoinSupply":      s.tip.totalSupply.String(),
 		"SpendableSupply": s.tip.spendableSupply.String(),
+		"Parameters":      parameters,
 		"SurgeUpHeight":   surgeUpHeight,
 		"SurgeDownHeight": surgeDownHeight,
 	})
