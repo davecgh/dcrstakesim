@@ -314,12 +314,10 @@ func (s *simulator) simulate(numBlocks uint64) error {
 		if uint64(nextHeight) < surgeUpHeight ||
 			uint64(nextHeight) > surgeDownHeight {
 			if newTickets > 0 && stakedCoins > (totalSupply*2/5) {
-				fmt.Println("limiting at height", nextHeight)
 				newTickets = 0
 			}
 		} else {
 			if newTickets > 0 && stakedCoins > (totalSupply*3/5) {
-				fmt.Println("limiting at height", nextHeight)
 				newTickets = 0
 			}
 		}
