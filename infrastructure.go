@@ -14,7 +14,6 @@ import (
 	"math/rand"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"sort"
 	"strconv"
@@ -948,11 +947,7 @@ func newSimulator(params *chaincfg.Params) *simulator {
 
 // generateResults creates an HTML results file for a completed simulation and
 // opens it using a browser.
-func generateResults(s *simulator, proposalName, ddfName string) error {
-	fileName := fmt.Sprintf("dcrstakesim-%s.html", time.Now().
-		Format("2006-01-02-150405"))
-	resultsPath := filepath.Join(os.TempDir(), fileName)
-
+func generateResults(s *simulator, resultsPath, proposalName, ddfName string) error {
 	// Parse the results template.
 	resultsTpl, err := template.New("results").Parse(resultsTmplText)
 	if err != nil {

@@ -13,6 +13,7 @@ import (
 	"math"
 	"math/big"
 	"os"
+	"path/filepath"
 	"runtime/pprof"
 	"strconv"
 	"strings"
@@ -449,7 +450,11 @@ func main() {
 	fmt.Println("Simulation took", time.Since(startTime))
 
 	// Generate the simulation results and open them in a browser.
-	if err := generateResults(sim, pfResultsName, ddfResultsName); err != nil {
+	fileName := fmt.Sprintf("dcrstakesim-%s-pf%s-ddf%s-blocks%d.html", time.Now().
+		Format("2006-01-02-150405"), *pfName, *ddfName, *numBlocks)
+	resultsPath := filepath.Join(os.TempDir(), fileName)
+	err := generateResults(sim, resultsPath, pfResultsName, ddfResultsName)
+	if err != nil {
 		fmt.Println(err)
 		return
 	}
