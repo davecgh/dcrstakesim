@@ -10,6 +10,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"math"
 	"math/big"
 	"os"
 	"runtime/pprof"
@@ -253,6 +254,12 @@ func (s *simulator) demandFuncB(nextHeight int32, ticketPrice int64) float64 {
 	return s.calcYieldDemand(nextHeight, ticketPrice)
 }
 
+// isInSurgeRange returns whether or not the provided height is within the range
+// of blocks defined by the surge up and down heights.
+func isInSurgeRange(height int32) bool {
+	return uint64(height) >= surgeUpHeight && uint64(height) <= surgeDownHeight
+}
+
 // simulate runs the simulation using a calculated demand curve which models
 // how ticket purchasing would typically proceed based upon the price and the
 // VWAP.
@@ -297,6 +304,10 @@ func (s *simulator) simulate(numBlocks uint64) error {
 					"demand of %v which is not in the "+
 					"range of [0, 1]", demand))
 			}
+			// Double the demand during the surge range.
+			if isInSurgeRange(nextHeight) {
+				demand = math.Min(1, demand*2)
+			}
 			demandPerWindow = int32(float64(maxTicketsPerWindow) * demand)
 		}
 
@@ -311,8 +322,7 @@ func (s *simulator) simulate(numBlocks uint64) error {
 		// down heights which limit to 60% of the total supply in order
 		// to simulate a sudden surge and drop the amount of staked
 		// coins.
-		if uint64(nextHeight) < surgeUpHeight ||
-			uint64(nextHeight) > surgeDownHeight {
+		if !isInSurgeRange(nextHeight) {
 			if newTickets > 0 && stakedCoins > (totalSupply*2/5) {
 				newTickets = 0
 			}
