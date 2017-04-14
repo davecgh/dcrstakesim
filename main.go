@@ -29,6 +29,15 @@ const (
 	fieldsPerRecord = 3
 )
 
+var (
+	// surgeUpHeight and surgeDownHeight are the heights at which the
+	// simulator will simulate a large portion of new coins available to
+	// stake and a large portion of coins removed from being available to
+	// stake, respectively.
+	surgeUpHeight   uint64
+	surgeDownHeight uint64
+)
+
 // convertRecord converts the passed record, which is expected to be parsed from
 // a CSV file, and thus will be a slice of strings, into a struct with concrete
 // types.
@@ -255,6 +264,12 @@ func (s *simulator) simulate(numBlocks uint64) error {
 	maxNewTicketsPerBlock := int32(s.params.MaxFreshStakePerBlock)
 	maxTicketsPerWindow := maxNewTicketsPerBlock * stakeDiffWindowSize
 
+	// Heights relative to the total number of blocks at which to surge the
+	// amount of coins avilable to stake up and down.  This is 60% and 80%,
+	// respectively.
+	surgeUpHeight = numBlocks * 3 / 5
+	surgeDownHeight = numBlocks * 4 / 5
+
 	demandPerWindow := maxTicketsPerWindow
 	for i := uint64(0); i < numBlocks; i++ {
 		var nextHeight int32
@@ -291,19 +306,20 @@ func (s *simulator) simulate(numBlocks uint64) error {
 			newTickets = uint8(maxPossible)
 		}
 
-		// TODO(davec): Account for tickets being purchased.
 		// Limit the total staked coins to 40% of the total supply
-		// except for in between blocks that are 60% and 80% of the
-		// total number of blocks to simulate which limit to 50% of the
-		// total supply in order to simulate a sudden surge and drop the
-		// amount of stake coins.
-		if uint64(nextHeight) < (numBlocks*3/5) ||
-			uint64(nextHeight) > (numBlocks*4/5) {
+		// except for in between blocks that defined for the surge up
+		// down heights which limit to 60% of the total supply in order
+		// to simulate a sudden surge and drop the amount of staked
+		// coins.
+		if uint64(nextHeight) < surgeUpHeight ||
+			uint64(nextHeight) > surgeDownHeight {
 			if newTickets > 0 && stakedCoins > (totalSupply*2/5) {
+				fmt.Println("limiting at height", nextHeight)
 				newTickets = 0
 			}
 		} else {
-			if newTickets > 0 && stakedCoins > (totalSupply/2) {
+			if newTickets > 0 && stakedCoins > (totalSupply*3/5) {
+				fmt.Println("limiting at height", nextHeight)
 				newTickets = 0
 			}
 		}

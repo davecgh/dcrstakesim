@@ -55,40 +55,29 @@ var resultsTmplText = `
       <div style="width: 95%;">
         <table>
           <tr>
-            <td>Min Ticket Price</td>
-            <td>{{.MinTicketPrice}}</td>
+            <td>Min & Max Ticket Price</td>
+            <td>{{.MinTicketPrice}}, {{.MaxTicketPrice}}</td>
           </tr>
           <tr>
-            <td>Max Ticket Price</td>
-            <td>{{.MaxTicketPrice}}</td>
+            <td>Total, Winning, & Expired Tickets</td>
+            <td>{{.NumTickets}}, {{.NumWinners}}, {{.NumExpired}} ({{.ExpiredPercent}}%)</td>
           </tr>
           <tr>
-            <td>Total Tickets</td>
-            <td>{{.NumTickets}}</td>
+            <td>Min & Max Pool Size</td>
+            <td>{{.MinPoolSize}}, {{.MaxPoolSize}}</td>
           </tr>
           <tr>
-            <td>Total Winning Tickets</td>
-            <td>{{.NumWinners}}</td>
+            <td>Total & Spendable Coin Supply</td>
+            <td>{{.CoinSupply}}, {{.SpendableSupply}}</td>
           </tr>
           <tr>
-            <td>Total Expired Tickets</td>
-            <td>{{.NumExpired}} ({{.ExpiredPercent}}%)</td>
-          </tr>
-          <tr>
-            <td>Min Pool Size</td>
-            <td>{{.MinPoolSize}}</td>
-          </tr>
-          <tr>
-            <td>Max Pool Size</td>
-            <td>{{.MaxPoolSize}}</td>
-          </tr>
-          <tr>
-            <td>Total Coin Supply</td>
-            <td>{{.CoinSupply}}</td>
-          </tr>
-          <tr>
-            <td>Spendable Coin Supply</td>
-            <td>{{.SpendableSupply}}</td>
+            <td>Notes</td>
+            <td>
+              Left click and drag to zoom.  Shift+Click to pan.  Yellow highlight
+              (if present) specifies the heights in between which a simulated
+              surge of extra coins to stake became available and after which
+              were taken away.
+            </td>
           </tr>
         </table>
       </div>
@@ -100,6 +89,16 @@ var resultsTmplText = `
     </div>
 
     <script>
+      function highlight(canvas, area, g) {
+        if ({{.SurgeUpHeight}} == 0) { return; }
+        var bottomLeft = g.toDomCoords({{.SurgeUpHeight}});
+        var topRight = g.toDomCoords({{.SurgeDownHeight}});
+        var left = bottomLeft[0];
+        var right = topRight[0];
+        canvas.fillStyle = "rgba(255, 255, 102, 1.0)";
+        canvas.fillRect(left, area.y, right - left, area.h);
+      }
+
       window.onload = function() {
         var csv = "{{.PoolSizeCSV}}";
         var poolSizeGraph = new Dygraph(document.getElementById("poolsizediv"), csv,
@@ -112,6 +111,7 @@ var resultsTmplText = `
             colors: ['#0c1e3e'],
             fillGraph: true,
             animatedZooms: true,
+            underlayCallback: highlight,
             plugins : [
                 Dygraph.Plugins.Unzoom
             ]
@@ -130,6 +130,7 @@ var resultsTmplText = `
             fillGraph: true,
             drawPoints: true,
             animatedZooms: true,
+            underlayCallback: highlight,
             plugins : [
                 Dygraph.Plugins.Unzoom
             ]
@@ -148,6 +149,7 @@ var resultsTmplText = `
             fillGraph: true,
             drawPoints: true,
             animatedZooms: true,
+            underlayCallback: highlight,
             plugins : [
                 Dygraph.Plugins.Unzoom
             ]
