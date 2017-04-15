@@ -6,6 +6,8 @@ package main
 
 import (
 	"github.com/davecgh/dcrstakesim/internal/tickettreap"
+
+	"github.com/decred/dcrutil"
 )
 
 // calcNextStakeDiffProposal1 returns the required stake difficulty (aka ticket
@@ -161,6 +163,7 @@ func (s *simulator) calcNextStakeDiffProposal4() int64 {
 	if s.tip != nil {
 		nextHeight = s.tip.height + 1
 	}
+
 	stakeDiffStartHeight := int32(s.params.CoinbaseMaturity) + 1
 	if nextHeight < stakeDiffStartHeight {
 		return s.params.MinimumStakeDiff
@@ -208,6 +211,52 @@ func (s *simulator) calcNextStakeDiffProposal4() int64 {
 	} else {
 		nextDiff = int64(float64(curDiff) + (-bounds * scalingFactor))
 	}
+
+	if nextDiff < s.params.MinimumStakeDiff {
+		nextDiff = s.params.MinimumStakeDiff
+	}
+	return nextDiff
+}
+
+var integral = 0.0
+var previousError = 0.0
+
+// calcNextStakeDiffProposal5 returns the required stake difficulty (aka ticket
+// price) for the block after the current tip block the simulator is associated
+// with using the algorithm proposed by edsonbrusque in
+// https://github.com/decred/dcrd/issues/584
+func (s *simulator) calcNextStakeDiffProposal5() int64 {
+	// Stake difficulty before any tickets could possibly be purchased is
+	// the minimum value.
+	nextHeight := int32(0)
+	if s.tip != nil {
+		nextHeight = s.tip.height + 1
+	}
+
+	stakeDiffStartHeight := int32(s.params.CoinbaseMaturity) + 1
+	if nextHeight < stakeDiffStartHeight {
+		return s.params.MinimumStakeDiff
+	}
+
+	// Return the previous block's difficulty requirements if the next block
+	// is not at a difficulty retarget interval.
+	intervalSize := s.params.StakeDiffWindowSize
+	curDiff := s.tip.ticketPrice
+	if int64(nextHeight)%intervalSize != 0 {
+		return curDiff
+	}
+
+	ticketsPerBlock := int64(s.params.TicketsPerBlock)
+	targetPoolSize := ticketsPerBlock * int64(s.params.TicketPoolSize)
+
+	Kp := 0.0017
+	Ki := 0.00005
+	Kd := 0.0024
+	e := float64(int64(s.tip.poolSize) - targetPoolSize)
+	integral = integral + e
+	derivative := (e - previousError)
+	nextDiff := int64(dcrutil.AtomsPerCoin * (e*Kp + integral*Ki + derivative*Kd))
+	previousError = e
 
 	if nextDiff < s.params.MinimumStakeDiff {
 		nextDiff = s.params.MinimumStakeDiff
