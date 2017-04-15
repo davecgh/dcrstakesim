@@ -1021,8 +1021,8 @@ func generateResults(s *simulator, resultsPath, proposalName, ddfName string) er
 			}
 		}
 	}
-	totalTickets := s.liveTickets.Len() + len(s.wonTickets) +
-		len(s.expiredTickets)
+	totalTickets := s.liveTickets.Len() + len(s.immatureTickets) +
+		len(s.wonTickets) + len(s.expiredTickets)
 	expiredPercent := float64(len(s.expiredTickets)) * 100 / float64(totalTickets)
 	parameters := []struct {
 		Name  string
