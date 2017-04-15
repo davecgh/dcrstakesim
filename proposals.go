@@ -53,10 +53,10 @@ func (s *simulator) calcNextStakeDiffProposalJ() int64 {
 
 	// Useful ticket counts are A (-5 * 144) and B (15 * 144)
 	//A := -int64(s.params.TicketsPerBlock) * intervalSize
-	//B := (int64(s.params.MaxFreshStakePerBlock) - int64(s.params.TicketsPerBlock)) * intervalSize
-	t += 1280 // not B (i.e. 1440)?
+	B := (int64(s.params.MaxFreshStakePerBlock) - int64(s.params.TicketsPerBlock)) * intervalSize
+	t += B // 1280? (i.e. not 1440)
 
-	// Pool velocity (not used in this version)
+	// Pool velocity
 	poolDelta := float64(c-int64(len(s.immatureTickets))) / float64(p)
 	//accelPool := 1 - math.Abs(float64(poolDelta)) / float64(B+A)
 
@@ -73,15 +73,15 @@ func (s *simulator) calcNextStakeDiffProposalJ() int64 {
 	// Magnitude of price change as a percent of previous price.
 	absPriceDeltaLast := math.Abs(float64(curDiff-q) / float64(q))
 	// Mapped onto (0,1] by an exponential decay
-	m := math.Exp(-absPriceDeltaLast * 4)
+	m := math.Exp(-absPriceDeltaLast * 8)
 	// NOTE: make this stochastic by replacing the number 8 something like
 	// (rand.NewSource(s.tip.ticketPrice).Int63() >> 59)
 
 	// Scale directional (signed) pool force with the exponentially-mapped price
 	// derivative. Interpret the scalar input parameter as a percent of this
 	// computed price delta.
-	pctChange := s1 / 100 * m * del * poolDelta
-	n := float64(curDiff) * (1.0 + pctChange)
+	pctChange := s1 / 100 * m * del
+	n := float64(curDiff) * (1.0 + pctChange) * poolDelta
 
 	// Enforce minimum and maximum prices
 	pMax := int64(s.tip.totalSupply) / int64(s.params.TicketPoolSize)
