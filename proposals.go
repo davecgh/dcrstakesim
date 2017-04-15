@@ -32,8 +32,7 @@ func (s *simulator) calcNextStakeDiffProposal1() int64 {
 		return curDiff
 	}
 
-	// Attempt to get the ticket price and pool size from the previous
-	// retarget interval.
+	// Attempt to get the pool size from the previous retarget interval.
 	var prevPoolSize int64
 	prevRetargetHeight := nextHeight - int32(intervalSize)
 	node := s.ancestorNode(s.tip, prevRetargetHeight, nil)
