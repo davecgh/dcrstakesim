@@ -57,7 +57,13 @@ func (s *simulator) calcNextStakeDiffProposalJ() int64 {
 	t += B // 1280? (i.e. not 1440)
 
 	// Pool velocity
-	poolDelta := float64(c-int64(len(s.immatureTickets))) / float64(p)
+	var immprev int64
+	if len(s.immatureCount) >= int(s.params.TicketMaturity) {
+		immprev = int64(s.immatureCount[0])
+		//fmt.Println(immprev, len(s.immatureCount), s.tip.height)
+	}
+
+	poolDelta := float64(c) / float64(p+immprev)
 	//accelPool := 1 - math.Abs(float64(poolDelta)) / float64(B+A)
 
 	// Pool force (multiple of target pool size, signed)

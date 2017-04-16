@@ -305,6 +305,7 @@ type simulator struct {
 	// the live ticket pool due to events such as maturing, winning the
 	// lottery, failing to vote, and expiring.
 	immatureTickets  []*stakeTicket
+	immatureCount    []int
 	liveTickets      *tickettreap.Immutable
 	expireHeights    map[int32][]*stakeTicket
 	expiredTickets   []*stakeTicket
@@ -706,6 +707,11 @@ func (s *simulator) connectLiveTickets(height int32, winners, purchases []*stake
 
 	// Add new ticket purchases to the immature ticket pool.
 	s.immatureTickets = append(s.immatureTickets, purchases...)
+
+	if len(s.immatureCount) >= int(s.params.TicketMaturity) {
+		s.immatureCount = s.immatureCount[1:]
+	}
+	s.immatureCount = append(s.immatureCount, len(s.immatureTickets))
 
 	// Add new ticket purchases to the map which tracks when they expire.
 	liveHeight := height + int32(s.params.TicketMaturity) + 1
