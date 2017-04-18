@@ -217,8 +217,8 @@ func (s *simulator) calcPrevVWAP(prevNode *blockNode) int64 {
 		prevNode = prevNode.parent
 	}
 
-	// Return minimum ticket price if there are were not any ticket
-	// purchases at all in the entire period being examined.
+	// Return minimum ticket price if there were not any ticket purchases at
+	// all in the entire period being examined.
 	if totalTickets.Sign() == 0 {
 		return s.params.MinimumStakeDiff
 	}
