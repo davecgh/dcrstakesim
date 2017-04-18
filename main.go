@@ -366,7 +366,7 @@ func main() {
 		"Path to simulation CSV input data -- This overrides numblocks")
 	var numBlocks = flag.Uint64("numblocks", 100000, "Number of blocks to simulate")
 	var pfName = flag.String("pf", "current",
-		"Set the ticket price calculation function -- available options: [current, 1, 2, 3]")
+		"Set the ticket price calculation function -- available options: [current, 1, 2, 3, 4]")
 	var ddfName = flag.String("ddf", "a",
 		"Set the demand distribution function -- available options: [a, b]")
 	var verbose = flag.Bool("verbose", false, "Print additional details about simulator state")
@@ -404,6 +404,9 @@ func main() {
 	case "3":
 		sim.nextTicketPriceFunc = sim.calcNextStakeDiffProposal3
 		pfResultsName = "Proposal 3"
+	case "4":
+		sim.nextTicketPriceFunc = sim.calcNextStakeDiffProposal4
+		pfResultsName = "Proposal 4"
 	default:
 		fmt.Printf("%q is not a valid ticket price func name\n",
 			*pfName)

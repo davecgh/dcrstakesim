@@ -149,3 +149,68 @@ func (s *simulator) calcNextStakeDiffProposal3() int64 {
 	}
 	return price
 }
+
+// calcNextStakeDiffProposal4 returns the required stake difficulty (aka ticket
+// price) for the block after the current tip block the simulator is associated
+// with using the algorithm proposed by jyap808 in
+// https://github.com/decred/dcrd/issues/584
+func (s *simulator) calcNextStakeDiffProposal4() int64 {
+	// Stake difficulty before any tickets could possibly be purchased is
+	// the minimum value.
+	nextHeight := int32(0)
+	if s.tip != nil {
+		nextHeight = s.tip.height + 1
+	}
+	stakeDiffStartHeight := int32(s.params.CoinbaseMaturity) + 1
+	if nextHeight < stakeDiffStartHeight {
+		return s.params.MinimumStakeDiff
+	}
+
+	// Return the previous block's difficulty requirements if the next block
+	// is not at a difficulty retarget interval.
+	intervalSize := s.params.StakeDiffWindowSize
+	curDiff := s.tip.ticketPrice
+	if int64(nextHeight)%intervalSize != 0 {
+		return curDiff
+	}
+
+	// Get the number of tickets purchased in the previous interval.
+	var ticketsPurchased int64
+	prevRetargetHeight := s.tip.height - int32(intervalSize)
+	s.ancestorNode(s.tip, prevRetargetHeight, func(node *blockNode) {
+		ticketsPurchased += int64(len(node.ticketsAdded))
+	})
+
+	// Shorter versions of useful params for convenience.
+	votesPerBlock := int64(s.params.TicketsPerBlock)
+	votesPerInterval := votesPerBlock * int64(s.params.TicketPoolSize)
+	maxTicketsPerBlock := int64(s.params.MaxFreshStakePerBlock)
+	maxTicketsPerInterval := maxTicketsPerBlock * int64(s.params.TicketPoolSize)
+	targetPoolSize := votesPerBlock * int64(s.params.TicketPoolSize)
+
+	// Formulas provided by proposal.
+	//
+	// Bounds = TickPrice *  TickVotesCycle / MaxTickCycle
+	// ScalingFactor = (TickBought - TickVotesCycle) / (MaxTickCycle - TickVotesCycle)
+	//
+	// If PoolTarget >= PoolTickets:
+	//   NewTickPrice = TickPrice + (Bounds * Scaling Factor)
+	// Else:
+	//   NewTickPrice = TickPrice + (-Bounds * Scaling Factor)
+	//
+	var nextDiff int64
+	bounds := float64(curDiff) * float64(votesPerInterval) /
+		float64(maxTicketsPerInterval)
+	scalingFactor := float64(ticketsPurchased-votesPerInterval) /
+		float64(maxTicketsPerInterval-votesPerInterval)
+	if targetPoolSize >= int64(s.tip.poolSize) {
+		nextDiff = int64(float64(curDiff) + (bounds * scalingFactor))
+	} else {
+		nextDiff = int64(float64(curDiff) + (-bounds * scalingFactor))
+	}
+
+	if nextDiff < s.params.MinimumStakeDiff {
+		nextDiff = s.params.MinimumStakeDiff
+	}
+	return nextDiff
+}
