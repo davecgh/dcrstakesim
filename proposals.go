@@ -7,7 +7,6 @@ package main
 import (
 	"fmt"
 	"math"
-	"os"
 
 	"github.com/davecgh/dcrstakesim/internal/tickettreap"
 	"github.com/decred/dcrutil"
@@ -16,7 +15,7 @@ import (
 var s1 float64
 var minStakeDiff int64
 
-func (s *simulator) calcNextStakeDiffProposalJ() int64 {
+func (s *simulator) calcNextStakeDiffProposal6() int64 {
 	// Stake difficulty before any tickets could possibly be purchased is
 	// the minimum value.
 	nextHeight := int32(0)
@@ -54,17 +53,34 @@ func (s *simulator) calcNextStakeDiffProposalJ() int64 {
 	// Useful ticket counts are A (-5 * 144) and B (15 * 144)
 	//A := -int64(s.params.TicketsPerBlock) * intervalSize
 	B := (int64(s.params.MaxFreshStakePerBlock) - int64(s.params.TicketsPerBlock)) * intervalSize
-	t += B // 1280? (i.e. not 1440)
+	t += 1280 // not B (1440)?
 
 	// Pool velocity
+	//
+	// Get immature count from previous window
 	var immprev int64
-	if len(s.immatureCount) >= int(s.params.TicketMaturity) {
+	if len(s.immatureCount) >= int(intervalSize) {
 		immprev = int64(s.immatureCount[0])
 		//fmt.Println(immprev, len(s.immatureCount), s.tip.height)
 	}
+	// apply it to previous live count
+	p += immprev
 
-	poolDelta := float64(c) / float64(p+immprev)
-	//accelPool := 1 - math.Abs(float64(poolDelta)) / float64(B+A)
+	// Pool size change over last intervalSize blocks
+	//
+	// Option 1: fraction of previous:
+	//poolDelta := float64(c) / float64(p)
+	//
+	// Option 2: fraction of max possible change
+	// Pool size change is on [A,B] (i.e. [-720,1440] for mainnet)
+	poolDelta := float64(c - p)
+	// Compute fraction
+	poolDelta = 1 + poolDelta/float64(B)/4.0
+	// allow convergence
+	if math.Abs(poolDelta-1) < 0.05 {
+		poolDelta = 1
+	}
+	// no change -> 1, fall by 720 -> 0.75, increase by 1440 -> 1.25
 
 	// Pool force (multiple of target pool size, signed)
 	del := float64(c-t) / float64(t)
@@ -79,7 +95,7 @@ func (s *simulator) calcNextStakeDiffProposalJ() int64 {
 	// Magnitude of price change as a percent of previous price.
 	absPriceDeltaLast := math.Abs(float64(curDiff-q) / float64(q))
 	// Mapped onto (0,1] by an exponential decay
-	m := math.Exp(-absPriceDeltaLast * 8)
+	m := math.Exp(-absPriceDeltaLast * 2) // m = 80% ~= exp((10% delta) *-2)
 	// NOTE: make this stochastic by replacing the number 8 something like
 	// (rand.NewSource(s.tip.ticketPrice).Int63() >> 59)
 
@@ -100,7 +116,7 @@ func (s *simulator) calcNextStakeDiffProposalJ() int64 {
 
 	// Verbose info
 	c -= int64(len(s.immatureTickets))
-	fmt.Println(c, c-t, m, curDiff, q, absPriceDeltaLast, pctChange, price)
+	fmt.Println(c, c-t+1280, m, poolDelta, curDiff, q, absPriceDeltaLast, pctChange, price)
 
 	return price
 }

@@ -708,7 +708,7 @@ func (s *simulator) connectLiveTickets(height int32, winners, purchases []*stake
 	// Add new ticket purchases to the immature ticket pool.
 	s.immatureTickets = append(s.immatureTickets, purchases...)
 
-	if len(s.immatureCount) >= int(s.params.TicketMaturity) {
+	if len(s.immatureCount) >= int(s.params.StakeDiffWindowSize) {
 		s.immatureCount = s.immatureCount[1:]
 	}
 	s.immatureCount = append(s.immatureCount, len(s.immatureTickets))
