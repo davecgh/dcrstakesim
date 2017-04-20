@@ -255,6 +255,17 @@ func (s *simulator) demandFuncB(nextHeight int32, ticketPrice int64) float64 {
 	return s.calcYieldDemand(nextHeight, ticketPrice)
 }
 
+// demandFuncC returns a simulated demand (as a percentage of the number of
+// tickets to purchase within a given stake difficulty interval) based upon
+// alternating between demandFuncA and demandFuncB each interval.
+func (s *simulator) demandFuncC(nextHeight int32, ticketPrice int64) float64 {
+	interval := int64(nextHeight) / s.params.StakeDiffWindowSize
+	if interval%2 == 0 {
+		return s.demandFuncA(nextHeight, ticketPrice)
+	}
+	return s.demandFuncB(nextHeight, ticketPrice)
+}
+
 // isInSurgeRange returns whether or not the provided height is within the range
 // of blocks defined by the surge up and down heights.
 func isInSurgeRange(height int32) bool {
@@ -368,7 +379,7 @@ func main() {
 	var pfName = flag.String("pf", "current",
 		"Set the ticket price calculation function -- available options: [current, 1, 2, 3, 4, 5]")
 	var ddfName = flag.String("ddf", "a",
-		"Set the demand distribution function -- available options: [a, b]")
+		"Set the demand distribution function -- available options: [a, b, c]")
 	var verbose = flag.Bool("verbose", false, "Print additional details about simulator state")
 	flag.Parse()
 
@@ -430,6 +441,9 @@ func main() {
 	case "b":
 		sim.demandFunc = sim.demandFuncB
 		ddfResultsName = "b - Purchase based on estimated nominal yield"
+	case "c":
+		sim.demandFunc = sim.demandFuncC
+		ddfResultsName = "c - Alternate between purchasing based solely on estimated nominal yield and including volume-weighted average price each interval"
 	default:
 		fmt.Printf("%q is not a valid demand distribution func name\n",
 			*ddfName)
