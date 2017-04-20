@@ -5,10 +5,129 @@
 package main
 
 import (
-	"github.com/davecgh/dcrstakesim/internal/tickettreap"
+	"fmt"
+	"math"
 
+	"github.com/davecgh/dcrstakesim/internal/tickettreap"
 	"github.com/decred/dcrutil"
 )
+
+var s1 float64
+var minStakeDiff int64
+
+func (s *simulator) calcNextStakeDiffProposal6() int64 {
+	// Stake difficulty before any tickets could possibly be purchased is
+	// the minimum value.
+	nextHeight := int32(0)
+	if s.tip != nil {
+		nextHeight = s.tip.height + 1
+	}
+	altMinDiff := minStakeDiff * 1e8 // normally s.params.MinimumStakeDiff
+	stakeDiffStartHeight := int32(s.params.CoinbaseMaturity) + 1
+	if nextHeight < stakeDiffStartHeight {
+		return altMinDiff
+	}
+
+	// Return the previous block's difficulty requirements if the next block
+	// is not at a difficulty retarget interval.
+	intervalSize := s.params.StakeDiffWindowSize
+	curDiff := s.tip.ticketPrice
+	if int64(nextHeight)%intervalSize != 0 {
+		return curDiff
+	}
+
+	// The following variables are used in the algorithm
+	// Pool: p, c, t (previous, current, target)
+	// Price : q, curDiff, n (previous, current, next)
+
+	// Pool
+	c := int64(s.tip.poolSize) + int64(len(s.immatureTickets))
+	t := int64(s.params.TicketsPerBlock) * int64(s.params.TicketPoolSize)
+	// Previous window pool size and ticket price
+	p, q := s.poolSizeAndDiff(s.tip.height - int32(intervalSize))
+	// Return the existing ticket price for the first interval.
+	if p == 0 {
+		return curDiff
+	}
+
+	// Useful ticket counts are A (-5 * 144) and B (15 * 144)
+	//A := -int64(s.params.TicketsPerBlock) * intervalSize
+	B := (int64(s.params.MaxFreshStakePerBlock) - int64(s.params.TicketsPerBlock)) * intervalSize
+	t += 1280 // not B (1440)?
+
+	// Pool velocity
+	//
+	// Get immature count from previous window
+	var immprev int64
+	if len(s.immatureCount) >= int(intervalSize) {
+		immprev = int64(s.immatureCount[0])
+		//fmt.Println(immprev, len(s.immatureCount), s.tip.height)
+	}
+	// apply it to previous live count
+	p += immprev
+
+	// Pool size change over last intervalSize blocks
+	//
+	// Option 1: fraction of previous:
+	//poolDelta := float64(c) / float64(p)
+	//
+	// Option 2: fraction of max possible change
+	// Pool size change is on [A,B] (i.e. [-720,1440] for mainnet)
+	poolDelta := float64(c - p)
+	// Compute fraction
+	poolDelta = 1 + poolDelta/float64(B)/4.0
+	// allow convergence
+	if math.Abs(poolDelta-1) < 0.05 {
+		poolDelta = 1
+	}
+	// no change -> 1, fall by 720 -> 0.75, increase by 1440 -> 1.25
+
+	// Pool force (multiple of target pool size, signed)
+	del := float64(c-t) / float64(t)
+	// del /= float64(s.params.MaxFreshStakePerBlock)
+
+	// Price velocity damper (always positive) - A large change in price from
+	// the previous window to the current will have the effect of attenuating
+	// the price change we are computing here. This is a very simple way of
+	// slowing down the price, at the expense of making the price a little jumpy
+	// and slower to adapt to big events.
+	//
+	// Magnitude of price change as a percent of previous price.
+	absPriceDeltaLast := math.Abs(float64(curDiff-q) / float64(q))
+	// Mapped onto (0,1] by an exponential decay
+	m := math.Exp(-absPriceDeltaLast * 2) // m = 80% ~= exp((10% delta) *-2)
+	// NOTE: make this stochastic by replacing the number 8 something like
+	// (rand.NewSource(s.tip.ticketPrice).Int63() >> 59)
+
+	// Scale directional (signed) pool force with the exponentially-mapped price
+	// derivative. Interpret the scalar input parameter as a percent of this
+	// computed price delta.
+	pctChange := s1 / 100 * m * del
+	n := float64(curDiff) * (1.0 + pctChange) * poolDelta
+
+	// Enforce minimum and maximum prices
+	pMax := int64(s.tip.totalSupply) / int64(s.params.TicketPoolSize)
+	price := int64(n)
+	if price < altMinDiff {
+		price = altMinDiff
+	} else if price > pMax {
+		price = pMax
+	}
+
+	// Verbose info
+	c -= int64(len(s.immatureTickets))
+	fmt.Println(c, c-t+1280, m, poolDelta, curDiff, q, absPriceDeltaLast, pctChange, price)
+
+	return price
+}
+
+func (s *simulator) poolSizeAndDiff(height int32) (int64, int64) {
+	node := s.ancestorNode(s.tip, height, nil)
+	if node != nil {
+		return int64(node.poolSize), node.ticketPrice
+	}
+	return int64(s.tip.poolSize), s.tip.ticketPrice
+}
 
 // calcNextStakeDiffProposal1 returns the required stake difficulty (aka ticket
 // price) for the block after the current tip block the simulator is associated

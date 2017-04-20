@@ -377,11 +377,19 @@ func main() {
 		"Path to simulation CSV input data -- This overrides numblocks")
 	var numBlocks = flag.Uint64("numblocks", 100000, "Number of blocks to simulate")
 	var pfName = flag.String("pf", "current",
-		"Set the ticket price calculation function -- available options: [current, 1, 2, 3, 4, 5]")
+		"Set the ticket price calculation function -- available options: [current, 1, 2, 3, 4, 5, 6]")
 	var ddfName = flag.String("ddf", "a",
 		"Set the demand distribution function -- available options: [a, b, c, full]")
 	var verbose = flag.Bool("verbose", false, "Print additional details about simulator state")
+	var scalar1 = flag.Float64("scalar1", 100, "Algorithm parameter #1 (float64)")
+	var minSDiff = flag.Int64("minsdiff", -1, "Minimum stake difficulty")
 	flag.Parse()
+
+	s1 = *scalar1
+	minStakeDiff = *minSDiff
+	if minStakeDiff == -1 {
+		minStakeDiff = 2
+	}
 
 	// Generate a CPU profile if requested.
 	if *cpuProfilePath != "" {
@@ -421,6 +429,9 @@ func main() {
 	case "5":
 		sim.nextTicketPriceFunc = sim.calcNextStakeDiffProposal5
 		pfResultsName = "Proposal 5"
+	case "6":
+		sim.nextTicketPriceFunc = sim.calcNextStakeDiffProposal6
+		pfResultsName = "Proposal 6"
 	default:
 		fmt.Printf("%q is not a valid ticket price func name\n",
 			*pfName)
