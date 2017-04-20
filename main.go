@@ -379,7 +379,7 @@ func main() {
 	var pfName = flag.String("pf", "current",
 		"Set the ticket price calculation function -- available options: [current, 1, 2, 3, 4, 5]")
 	var ddfName = flag.String("ddf", "a",
-		"Set the demand distribution function -- available options: [a, b, c]")
+		"Set the demand distribution function -- available options: [a, b, c, full]")
 	var verbose = flag.Bool("verbose", false, "Print additional details about simulator state")
 	flag.Parse()
 
@@ -444,6 +444,9 @@ func main() {
 	case "c":
 		sim.demandFunc = sim.demandFuncC
 		ddfResultsName = "c - Alternate between purchasing based solely on estimated nominal yield and including volume-weighted average price each interval"
+	case "full":
+		sim.demandFunc = func(int32, int64) float64 { return 1.0 }
+		ddfResultsName = "full - Purchase with 100% demand"
 	default:
 		fmt.Printf("%q is not a valid demand distribution func name\n",
 			*ddfName)
