@@ -145,25 +145,45 @@ func (s *simulator) simulateFromCSV(csvPath string) error {
 // tickets to purchase within a given stake difficulty interval) based upon the
 // estimated yield purchasing a ticket would produce.
 func (s *simulator) calcYieldDemand(nextHeight int32, ticketPrice int64) float64 {
+	const (
+		// Start with a base of a minimum acceptable estimated nominal
+		// yield of 2% and a upper yield of 5% after which there is 100%
+		// demand.
+		baseLowerYield = 0.02
+		baseUpperYield = 0.05
+		yieldSpread    = baseLowerYield / baseUpperYield
+		minYield       = 0.00083
+		minUpperYield  = minYield / yieldSpread
+	)
+
+	// Scale the yield down over time reflect rational behavior where
+	// stakeholders will accept lower yields as higher ones are no longer
+	// available due to a reducing subsidy.
+	reductions := nextHeight / int32(s.params.SubsidyReductionInterval*5)
+	lowerYield := baseLowerYield - (0.001 * float64(reductions))
+	lowerYield = math.Max(lowerYield, minYield)
+	upperYield := math.Max(lowerYield/yieldSpread, minUpperYield)
+
+	// Calculate estimated expected nominal yield.
 	expectedPayoutHeight := int32((time.Hour * 24) * 28 / s.params.TargetTimePerBlock)
 	ticketsPerBlock := s.params.TicketsPerBlock
 	posSubsidy := s.calcPoSSubsidy(nextHeight + expectedPayoutHeight - 1)
 	perVoteSubsidy := posSubsidy / dcrutil.Amount(ticketsPerBlock)
 
-	// 100% demand when the yield is over 5%.
+	// 100% demand when the yield is high enough.
 	yield := float64(perVoteSubsidy) / float64(ticketPrice)
-	if yield > 0.05 {
+	if yield > upperYield {
 		return 1.0
 	}
 
-	// No demand when the yield is under 2%.
-	if yield < 0.02 {
+	// No demand when the yield is under minimum acceptable yield.
+	if yield < lowerYield {
 		return 0.0
 	}
 
-	// The yield is in between 2% and 5%, so create a linear demand
+	// The yield is between the acceptable range, so create a linear demand
 	// accordingly.
-	return (yield - 0.02) / 0.03
+	return (yield - lowerYield) / (upperYield - lowerYield)
 }
 
 // calcVWAPDemand returns a simulated demand (as a percentage of the number of
