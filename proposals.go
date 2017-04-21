@@ -391,6 +391,41 @@ func (s *simulator) calcNextStakeDiffProposal6() int64 {
 	return price
 }
 
+// estimateSupply returns an estimate of the coin supply for the provided block
+// height.  This is primarily used in the stake difficulty algorithm and relies
+// on an estimate to simplify the necessary calculations.  The actual total
+// coin supply as of a given block height depends on many factors such as the
+// number of votes included in every prior block (not including all votes
+// reduces the subsidy) and whether or not any of the prior blocks have been
+// invalidated by stakeholders thereby removing the PoW subsidy for the them.
+func (s *simulator) estimateSupply(height int32) dcrutil.Amount {
+	if height <= 0 {
+		return 0
+	}
+
+	// Estimate the supply by calculating the full block subsidy for each
+	// reduction interval and multiplying it the number of blocks in the
+	// interval then adding the subsidy produced by number of blocks in the
+	// current interval.
+	supply := s.params.BlockOneSubsidy()
+	reductions := int64(height) / s.params.SubsidyReductionInterval
+	subsidy := s.params.BaseSubsidy
+	for i := int64(0); i < reductions; i++ {
+		supply += s.params.SubsidyReductionInterval * subsidy
+
+		subsidy *= s.params.MulSubsidy
+		subsidy /= s.params.DivSubsidy
+	}
+	supply += (int64(height) % s.params.SubsidyReductionInterval) * subsidy
+
+	// Blocks 0 and 1 have special subsidy amounts that have already been
+	// added above, so remove what their subsidies would have normally been
+	// which were also added above.
+	supply -= s.params.BaseSubsidy * 2
+
+	return dcrutil.Amount(supply)
+}
+
 // calcNextStakeDiffProposal7 returns the required stake difficulty (aka ticket
 // price) for the block after the current tip block the simulator is associated
 // with using the algorithm proposed by raedah, jy-p, and davecgh in
@@ -453,7 +488,8 @@ func (s *simulator) calcNextStakeDiffProposal7() int64 {
 
 	// Limit the new stake difficulty between the minimum allowed stake
 	// difficulty and a maximum value that is relative to the total supply.
-	maximumStakeDiff := int64(float64(s.tip.totalSupply) / float64(ticketPoolSize))
+	estimatedSupply := s.estimateSupply(nextHeight)
+	maximumStakeDiff := int64(float64(estimatedSupply) / float64(ticketPoolSize))
 	if nextDiff > maximumStakeDiff {
 		nextDiff = maximumStakeDiff
 	}
