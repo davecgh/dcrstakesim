@@ -316,7 +316,8 @@ func (s *simulator) simulate(numBlocks uint64) error {
 		if s.tip != nil {
 			nextHeight = s.tip.height + 1
 			totalSupply = s.tip.totalSupply
-			spendableSupply = s.tip.spendableSupply
+			spendableSupply = s.tip.spendableSupply +
+				s.maturingSupply[nextHeight]
 			stakedCoins = s.tip.stakedCoins
 		}
 
