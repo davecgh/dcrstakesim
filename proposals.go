@@ -6,6 +6,7 @@ package main
 
 import (
 	"math"
+	"math/big"
 
 	"github.com/davecgh/dcrstakesim/internal/tickettreap"
 
@@ -451,8 +452,14 @@ func (s *simulator) calcNextStakeDiffProposal7() int64 {
 	}
 
 	// Attempt to get the pool size from the previous retarget interval.
+	//
+	// NOTE: Since the stake difficulty must be calculated based on existing
+	// blocks, it is always calculated for the block after a given block, so
+	// the information for the previous retarget interval must be retrieved
+	// relative to the block just before it to coincide with how it was
+	// originally calculated.
 	var prevPoolSize int64
-	prevRetargetHeight := nextHeight - int32(intervalSize)
+	prevRetargetHeight := nextHeight - int32(intervalSize) - 1
 	node := s.ancestorNode(s.tip, prevRetargetHeight, nil)
 	if node != nil {
 		prevPoolSize = int64(node.poolSize)
@@ -463,33 +470,66 @@ func (s *simulator) calcNextStakeDiffProposal7() int64 {
 		return curDiff
 	}
 
+	// Shoter version of various parameter for convenience.
+	ticketMaturity := int64(s.params.TicketMaturity)
+	votesPerBlock := int64(s.params.TicketsPerBlock)
+	ticketPoolSize := int64(s.params.TicketPoolSize)
+
 	// Get the immature ticket count from the previous interval.
 	var prevImmatureTickets int64
-	ticketMaturity := int64(s.params.TicketMaturity)
 	s.ancestorNode(node, node.height-int32(ticketMaturity), func(n *blockNode) {
 		prevImmatureTickets += int64(len(n.ticketsAdded))
 	})
 
-	// Derive ratio of percent change in pool size.
-	immatureTickets := int64(len(s.immatureTickets))
-	curPoolSize := int64(s.tip.poolSize)
-	curPoolSizeAll := curPoolSize + immatureTickets
+	// Calculate the difficulty by multiplying the the old stake difficulty
+	// with two ratios that represent a force to counteract the relative
+	// change in the pool size (Fc) and a restorative force to push the pool
+	// size  towards the target value (Fr).
+	//
+	// The generalized equation is:
+	//
+	//   nextDiff = curDiff * Fc * Fr
+	//
+	// The detailed form expands to:
+	//
+	//                        curPoolSizeAll      curPoolSizeAll
+	//   nextDiff = curDiff * ---------------  * -----------------
+	//                        prevPoolSizeAll    targetPoolSizeAll
+	//
+	//   Slb = b.chainParams.MinimumStakeDiff
+	//
+	//               estimatedTotalSupply
+	//   Sub = -------------------------------
+	//          targetPoolSize / votesPerBlock
+	//
+	// In order to avoid the need to perform floating point math which could
+	// be problematic across langauges due to uncertainty in floating point
+	// math libs, this is further simplified to integer math as follows:
+	//
+	//                   curDiff * curPoolSizeAll^2
+	//   nextDiff = -----------------------------------
+	//              prevPoolSizeAll * targetPoolSizeAll
+	//
+	// Further, the Sub parameter must calculate the denomitor first using
+	// integer math.
+	curPoolSizeAll := int64(s.tip.poolSize) + int64(len(s.immatureTickets))
 	prevPoolSizeAll := prevPoolSize + prevImmatureTickets
-	poolSizeChangeRatio := float64(curPoolSizeAll) / float64(prevPoolSizeAll)
-
-	// Derive ratio of percent of target pool size.
-	ticketsPerBlock := int64(s.params.TicketsPerBlock)
-	ticketPoolSize := int64(s.params.TicketPoolSize)
-	targetPoolSizeAll := ticketsPerBlock * (ticketPoolSize + ticketMaturity)
-	targetRatio := float64(curPoolSizeAll) / float64(targetPoolSizeAll)
-
-	// Voila!
-	nextDiff := int64(float64(curDiff) * poolSizeChangeRatio * targetRatio)
+	targetPoolSizeAll := votesPerBlock * (ticketPoolSize + ticketMaturity)
+	curPoolSizeAllBig := big.NewInt(curPoolSizeAll)
+	nextDiffBig := big.NewInt(curDiff)
+	nextDiffBig.Mul(nextDiffBig, curPoolSizeAllBig)
+	nextDiffBig.Mul(nextDiffBig, curPoolSizeAllBig)
+	nextDiffBig.Div(nextDiffBig, big.NewInt(prevPoolSizeAll))
+	nextDiffBig.Div(nextDiffBig, big.NewInt(targetPoolSizeAll))
 
 	// Limit the new stake difficulty between the minimum allowed stake
 	// difficulty and a maximum value that is relative to the total supply.
+	//
+	// NOTE: This is intentionally using integer math to prevent any
+	// potential issues due to uncertainty in floating point math libs.
+	nextDiff := nextDiffBig.Int64()
 	estimatedSupply := s.estimateSupply(nextHeight)
-	maximumStakeDiff := int64(float64(estimatedSupply) / float64(ticketPoolSize))
+	maximumStakeDiff := int64(estimatedSupply) / ticketPoolSize
 	if nextDiff > maximumStakeDiff {
 		nextDiff = maximumStakeDiff
 	}
