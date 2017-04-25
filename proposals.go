@@ -416,7 +416,7 @@ func (s *simulator) estimateSupply(height int32) dcrutil.Amount {
 		subsidy *= s.params.MulSubsidy
 		subsidy /= s.params.DivSubsidy
 	}
-	supply += (int64(height) % s.params.SubsidyReductionInterval) * subsidy
+	supply += (1 + int64(height)%s.params.SubsidyReductionInterval) * subsidy
 
 	// Blocks 0 and 1 have special subsidy amounts that have already been
 	// added above, so remove what their subsidies would have normally been
