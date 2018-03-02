@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Dave Collins
+// Copyright (c) 2017-2018 Dave Collins
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
 
@@ -12,8 +12,8 @@ import (
 	"strings"
 
 	"github.com/decred/dcrd/blockchain/stake"
-	"github.com/decred/dcrrpcclient"
-	"github.com/decred/dcrutil"
+	"github.com/decred/dcrd/dcrutil"
+	"github.com/decred/dcrd/rpcclient"
 )
 
 func main() {
@@ -23,14 +23,14 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	connCfg := &dcrrpcclient.ConnConfig{
+	connCfg := &rpcclient.ConnConfig{
 		Host:         "localhost:9109",
 		Endpoint:     "ws",
 		User:         "yourrpcuser",
 		Pass:         "yourrpcpass",
 		Certificates: certs,
 	}
-	client, err := dcrrpcclient.New(connCfg, nil)
+	client, err := rpcclient.New(connCfg, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -52,15 +52,15 @@ func main() {
 			log.Fatal(err)
 		}
 
-		headerBytes, err := block.MsgBlock().Header.Bytes()
+		headerBytes, err := block.Header.Bytes()
 		if err != nil {
 			log.Fatal(err)
 		}
 
 		var ticketHashes []string
-		for _, stx := range block.STransactions() {
-			if ok, _ := stake.IsSStx(stx.MsgTx()); ok {
-				ticketHash := stx.MsgTx().TxHash().String()
+		for _, stx := range block.STransactions {
+			if ok, _ := stake.IsSStx(stx); ok {
+				ticketHash := stx.TxHash().String()
 				ticketHashes = append(ticketHashes, ticketHash)
 			}
 		}
