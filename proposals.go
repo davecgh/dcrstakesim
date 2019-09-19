@@ -10,7 +10,7 @@ import (
 
 	"github.com/davecgh/dcrstakesim/internal/tickettreap"
 
-	"github.com/decred/dcrd/dcrutil"
+	"github.com/decred/dcrd/dcrutil/v2"
 )
 
 // calcNextStakeDiffProposal1 returns the required stake difficulty (aka ticket

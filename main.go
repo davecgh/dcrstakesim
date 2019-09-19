@@ -19,9 +19,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/decred/dcrd/chaincfg"
+	"github.com/decred/dcrd/chaincfg/v2"
 	"github.com/decred/dcrd/chaincfg/chainhash"
-	"github.com/decred/dcrd/dcrutil"
+	"github.com/decred/dcrd/dcrutil/v2"
 	"github.com/decred/dcrd/wire"
 )
 
@@ -421,7 +421,7 @@ func main() {
 	// difficulty (aka ticket price) here.  Don't forget to update the help
 	// text for pfName above.
 	// *********************************************************************
-	sim := newSimulator(&chaincfg.MainNetParams, *verbose)
+	sim := newSimulator(chaincfg.MainNetParams(), *verbose)
 	pfResultsName := *pfName
 	switch *pfName {
 	case "current":

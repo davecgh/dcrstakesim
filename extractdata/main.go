@@ -11,9 +11,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/decred/dcrd/blockchain/stake"
-	"github.com/decred/dcrd/dcrutil"
-	"github.com/decred/dcrd/rpcclient"
+	"github.com/decred/dcrd/blockchain/stake/v2"
+	"github.com/decred/dcrd/dcrutil/v2"
+	"github.com/decred/dcrd/rpcclient/v4"
 )
 
 func main() {
@@ -59,7 +59,7 @@ func main() {
 
 		var ticketHashes []string
 		for _, stx := range block.STransactions {
-			if ok, _ := stake.IsSStx(stx); ok {
+			if stake.IsSStx(stx) {
 				ticketHash := stx.TxHash().String()
 				ticketHashes = append(ticketHashes, ticketHash)
 			}

@@ -38,43 +38,15 @@ Two separate modes are supported:
 
 Building or updating from source requires the following build dependencies:
 
-- **Go 1.9 or 1.10**
+- **Go 1.12 or 1.13**
 
   Installation instructions can be found here: http://golang.org/doc/install.
   It is recommended to add `$GOPATH/bin` to your `PATH` at this point.
 
-- **Dep**
+- **Git**
 
-  Dep is used to manage project dependencies and provide reproducible builds.
-  To install:
-
-  `go get -u github.com/golang/dep/cmd/dep`
-
-Unfortunately, the use of `dep` prevents a handy tool such as `go get` from
-automatically downloading, building, and installing the source in a single
-command.  Instead, the latest project and dependency sources must be first
-obtained manually with `git` and `dep`, and then `go` is used to build and
-install the project.
-
-**Getting the source**:
-
-For a first time installation, the project and dependency sources can be
-obtained manually with `git` and `glide` (create directories as needed):
-
-```
-git clone https://github.com/davecgh/dcrstakesim $GOPATH/src/github.com/davecgh/dcrstakesim
-cd $GOPATH/src/github.com/davecgh/dcrstakesim
-glide install
-```
-
-To update an existing source tree, pull the latest changes and install the
-matching dependencies:
-
-```
-cd $GOPATH/src/github.com/davecgh/dcrstakesim
-git pull
-glide install
-```
+  Installation instructions can be found at https://git-scm.com or
+  https://gitforwindows.org.
 
 **Building/Installing**:
 
@@ -82,16 +54,22 @@ The `go` tool is used to build or install (to `GOPATH`) the project.  Some
 example build instructions are provided below (all must run from the
 `dcrstakesim` project directory).
 
-To build a `dcrstakesim` executable and install it to `$GOPATH/bin/`:
+To build and install from a checked-out repo, run `go install . ./extractdata` in
+the repo's root directory.  Some notes:
 
-```
-go install
-```
+* Set the `GO111MODULE=on` environment variable if building from within
+  `GOPATH`.
 
-To build a `dcrstakesim` executable and place it in the current directory:
+* The `dcrstakesim` executable will be installed to `$GOPATH/bin`.  `GOPATH`
+  defaults to `$HOME/go` (or `%USERPROFILE%\go` on Windows) if unset.
 
-```
-go build
+### Example of obtaining and building from source on Windows 10:
+
+```PowerShell
+PS> git clone https://github.com/davecgh/dcrstakesim $env:USERPROFILE\src\dcrstakesim
+PS> cd $env:USERPROFILE\src\dcrstakesim
+PS> go install . .\extractdata
+PS> & "$(go env GOPATH)\bin\dcrstakesim" -h
 ```
 
 ## Issue Tracker
