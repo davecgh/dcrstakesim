@@ -65,7 +65,7 @@ To build and install directly from the remote repository:
 #### Example of obtaining and building the latest release on Windows 10:
 
 ```PowerShell
-PS> $env:GO111MODULE=on
+PS> $env:GO111MODULE="on"
 PS> go get -v github.com/davecgh/dcrstakesim
 PS> & "$(go env GOPATH)\bin\dcrstakesim" -h
 ```
